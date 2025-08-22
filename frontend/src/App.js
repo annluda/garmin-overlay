@@ -12,17 +12,16 @@ const GarminActivityEditor = () => {
 
   // 控制参数
   const [textSize, setTextSize] = useState(24);
-  const [textColor, setTextColor] = useState('#ffffff');
+  const [textColor, setTextColor] = useState('#F5F5F5');
   const [routeScale, setRouteScale] = useState(1);
   const [routeWidth, setRouteWidth] = useState(4);
-  const [routeColor, setRouteColor] = useState('#ff4757');
+  const [routeColor, setRouteColor] = useState('#FF5A3C');
 
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
   // API 基础 URL
-  const API_BASE_URL = 'http://localhost:9245';
-
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:9245';
 
 
   // 加载活动列表
@@ -174,10 +173,6 @@ const GarminActivityEditor = () => {
     ctx.lineWidth = routeWidth * routeScale; // 路线宽度也跟随缩放
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-    ctx.shadowBlur = 3 * routeScale;
-    ctx.shadowOffsetX = 1 * routeScale;
-    ctx.shadowOffsetY = 1 * routeScale;
 
     points.forEach((point, index) => {
       const x = offsetX + ((point.lon - minLon) / (maxLon - minLon)) * actualDrawWidth;
@@ -192,53 +187,47 @@ const GarminActivityEditor = () => {
 
     ctx.stroke();
 
-
-
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
   };
 
   // 绘制活动信息（居中显示）
   const drawActivityInfo = (ctx, activity) => {
-    ctx.font = `bold ${textSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+    const smallTextSize = textSize * 0.4;
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center'; // 改为居中对齐
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
 
     const distance = (activity.distance / 1000).toFixed(2);
     const duration = formatDuration(activity.duration);
     const elevation = activity.elevationGain.toFixed(0);
 
     const lines = [
+      `距离`,
       `${distance} km`,
-      duration,
-      `${elevation} m`
+      `爬升海拔`,
+      `${elevation} m`,
+      `时间`,
+      duration
     ];
 
-    const lineHeight = textSize + 8;
-
-    // 计算总文本块高度
-    const totalTextHeight = lines.length * lineHeight;
+    // 计算总文本块高度（从第一个基线到最后一个基线的跨度）
+    const numSmallGaps = 3; // 每个标签后的小间距
+    const numLargeGaps = 2; // 每个值后的大切割
+    const totalTextHeight = numSmallGaps * textSize + numLargeGaps * textSize;
 
     // 垂直居中起始位置
-    const startY = (ctx.canvas.height - totalTextHeight) / 2 + textSize;
+    const startY = (ctx.canvas.height - totalTextHeight) / 2 + smallTextSize;
 
     // 水平居中位置
     const centerX = ctx.canvas.width / 2;
-
+    let currentY = startY;
     lines.forEach((line, index) => {
-      ctx.fillText(line, centerX, startY + index * lineHeight);
+        if (index % 2 === 0) {
+          ctx.font = `${smallTextSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+        } else {
+          ctx.font = `${textSize}px 'DIN Alternate', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+        }
+      ctx.fillText(line, centerX, currentY);
+      currentY += textSize;
     });
-
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
   };
 
   // 下载图片
