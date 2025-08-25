@@ -9,6 +9,7 @@ const GarminActivityEditor = () => {
   const [gpxData, setGpxData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [step, setStep] = useState('upload'); // 'upload', 'selectActivity', 'edit'
 
   // 控制参数
   const [textSize, setTextSize] = useState(24);
@@ -69,6 +70,8 @@ const GarminActivityEditor = () => {
     } catch (err) {
       console.error('Failed to load GPX:', err);
     }
+
+    setStep('edit');
   }, [API_BASE_URL]);
 
   // 处理图片上传
@@ -78,7 +81,10 @@ const GarminActivityEditor = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
-      img.onload = () => setUploadedImage(img);
+      img.onload = () => {
+        setUploadedImage(img);
+        setStep('selectActivity');
+      };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
@@ -361,11 +367,36 @@ const GarminActivityEditor = () => {
           S T R A V A
         </h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 h-[calc(100vh-150px)]">
-          {/* 侧边栏 */}
-          <div className="lg:col-span-1 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-xl overflow-y-auto">
+        {step === 'upload' && (
+          <div className="h-[calc(100vh-150px)] flex items-center justify-center">
+            <div className="text-center w-full max-w-2xl">
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 rounded-xl p-16 cursor-pointer hover:border-teal-400 hover:bg-teal-50 transition-all duration-300 bg-white/95 backdrop-blur-xl shadow-xl"
+              >
+                <Upload className="mx-auto mb-4 text-teal-500" size={48} />
+                <h2 className="text-xl font-semibold text-gray-700 mb-2">上传背景图片</h2>
+                <p className="text-gray-500">
+                  点击或拖拽图片文件到这里
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e.target.files[0])}
+                  className="hidden"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 'selectActivity' && (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 h-[calc(100vh-150px)]">
             {/* 活动列表 */}
-            <div className="mb-6">
+            <div className="lg:col-span-1 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-xl overflow-y-auto">
               <h2 className="text-lg font-semibold text-indigo-600 mb-4 flex items-center gap-2">
                 <Activity size={20} />
                 活动列表
@@ -420,8 +451,22 @@ const GarminActivityEditor = () => {
               </div>
             </div>
 
-            {/* 样式控制 */}
-            {uploadedImage && (
+            {/* 图片预览 */}
+            <div className="lg:col-span-3 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-xl overflow-hidden">
+              <div className="relative w-full h-full flex items-center justify-center">
+                <canvas
+                  ref={canvasRef}
+                  className="max-w-full max-h-full rounded-xl shadow-lg"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 'edit' && (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 h-[calc(100vh-150px)]">
+            {/* 侧边栏 - 只显示样式控制 */}
+            <div className="lg:col-span-1 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-xl overflow-y-auto">
               <div className="space-y-6">
                 {/* 文字控制 */}
                 <div>
@@ -535,51 +580,19 @@ const GarminActivityEditor = () => {
                   </button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* 主编辑区 */}
-          <div className="lg:col-span-3 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-xl overflow-hidden">
-            <div className="relative w-full h-full flex items-center justify-center">
-              {uploadedImage ? (
+            {/* 主编辑区 */}
+            <div className="lg:col-span-3 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-xl overflow-hidden">
+              <div className="relative w-full h-full flex items-center justify-center">
                 <canvas
                   ref={canvasRef}
                   className="max-w-full max-h-full rounded-xl shadow-lg"
                 />
-              ) : (
-                <div className="text-center">
-                  {/* 图片上传区域 */}
-                  <div
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-gray-300 rounded-xl p-16 cursor-pointer hover:border-teal-400 hover:bg-teal-50 transition-all duration-300 mb-8"
-                  >
-                    <Upload className="mx-auto mb-4 text-teal-500" size={48} />
-                    <h2 className="text-xl font-semibold text-gray-700 mb-2">上传背景图片</h2>
-                    <p className="text-gray-500">
-                      点击或拖拽图片文件到这里
-                    </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageUpload(e.target.files[0])}
-                      className="hidden"
-                    />
-                  </div>
-
-                  {!selectedActivity && (
-                    <div className="text-gray-400">
-                      <Activity className="mx-auto mb-4" size={32} />
-                      <p>请先选择一个活动</p>
-                    </div>
-                  )}
-                </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
