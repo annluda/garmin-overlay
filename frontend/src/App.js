@@ -241,8 +241,9 @@ const GarminActivityEditor = () => {
     // 绘制路线的缩放手柄
     if (selectedElement === 'route') {
       const handleSize = 24;
-      const handleX = maxX - handleSize;
-      const handleY = minY;
+      const handleMargin = 4; // 向外偏移
+      const handleX = maxX + handleMargin;
+      const handleY = minY - handleSize - handleMargin;
 
       // 直接绘制 SVG 路径
       ctx.save();
@@ -326,8 +327,9 @@ const GarminActivityEditor = () => {
     // 只有选中文字时才绘制缩放手柄（右上角）
     if (selectedElement === 'text') {
       const handleSize = 24;
-      const handleX = right - handleSize;
-      const handleY = top;
+      const handleMargin = 0; // 向外偏移
+      const handleX = right + handleMargin;
+      const handleY = top - handleSize - handleMargin;
 
       ctx.save();
       ctx.translate(handleX, handleY);
@@ -403,12 +405,15 @@ const GarminActivityEditor = () => {
       // 检查缩放手柄（右上角）
       if (selectedElement === 'text') {
         const handleSize = 16;
-        const handleLeft = right - handleSize;
-        const handleTop = top;
-        const handleRight = right;
-        const handleBottom = top + handleSize;
+        const handleMargin = 0;
 
-        if (mouseX >= handleLeft && mouseX <= handleRight && mouseY >= handleTop && mouseY <= handleBottom) {
+        const handleLeft = right + handleMargin;
+        const handleRight = handleLeft + handleSize;
+        const handleTop = top - handleSize - handleMargin;
+        const handleBottom = handleTop + handleSize;
+
+        if (mouseX >= handleLeft && mouseX <= handleRight &&
+            mouseY >= handleTop && mouseY <= handleBottom) {
           setDragging('resize_text');
           setDragStart({ x: mouseX, y: mouseY });
           setStartTextSize(textSize);
@@ -483,12 +488,15 @@ const GarminActivityEditor = () => {
       // 检查缩放手柄（右上角）
       if (selectedElement === 'route') {
         const handleSize = 16;
-        const scaleHandleLeft = maxX - handleSize;
-        const scaleHandleTop = minY;
-        const scaleHandleRight = maxX;
-        const scaleHandleBottom = minY + handleSize;
+        const handleMargin = 4;
 
-        if (mouseX >= scaleHandleLeft && mouseX <= scaleHandleRight && mouseY >= scaleHandleTop && mouseY <= scaleHandleBottom) {
+        const scaleHandleLeft = maxX + handleMargin;
+        const scaleHandleRight = scaleHandleLeft + handleSize;
+        const scaleHandleTop = minY - handleSize - handleMargin;
+        const scaleHandleBottom = scaleHandleTop + handleSize;
+
+        if (mouseX >= scaleHandleLeft && mouseX <= scaleHandleRight &&
+            mouseY >= scaleHandleTop && mouseY <= scaleHandleBottom) {
           setDragging('resize_route_scale');
           setDragStart({ x: mouseX, y: mouseY });
           setStartRouteScale(routeScale);
@@ -632,7 +640,7 @@ const GarminActivityEditor = () => {
 
   const cursorClass = dragging
     ? dragging.startsWith('resize')
-      ? 'cursor-nwse-resize'
+      ? 'cursor-ne-resize'
       : 'cursor-grabbing'
     : 'cursor-auto';
 
@@ -640,7 +648,7 @@ const GarminActivityEditor = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="container mx-auto p-5 max-w-7xl">
         <h1 className="text-4xl font-light text-white text-center mb-8">
-          S T R A V A
+          G A R M I N
         </h1>
 
         {step === 'upload' && (
