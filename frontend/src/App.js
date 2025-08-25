@@ -238,31 +238,33 @@ const GarminActivityEditor = () => {
     maxY += halfWidth;
 
     // 只有选中路线时才绘制缩放手柄（右上角）
+    // 绘制路线的缩放手柄
     if (selectedElement === 'route') {
-      const handleSize = 16;
-      const cornerRadius = 4;
-
-      // 绘制美化的缩放手柄（右上角）
+      const handleSize = 24;
       const handleX = maxX - handleSize;
       const handleY = minY;
 
-      // 绘制手柄背景
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.9)';
-      ctx.beginPath();
-      ctx.roundRect(handleX, handleY, handleSize, handleSize, cornerRadius);
-      ctx.fill();
-
-      // 绘制手柄边框
+      // 直接绘制 SVG 路径
+      ctx.save();
+      ctx.translate(handleX, handleY);
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(11, 19); ctx.lineTo(5, 19); ctx.lineTo(5, 13); // path d="M11 19H5v-6"
       ctx.stroke();
 
-      // 绘制缩放图标（双箭头）
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('⤡', handleX + handleSize/2, handleY + handleSize/2);
+      ctx.beginPath();
+      ctx.moveTo(13, 5); ctx.lineTo(19, 5); ctx.lineTo(19, 11); // path d="M13 5h6v6"
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(19, 5); ctx.lineTo(5, 19); // path d="M19 5 5 19"
+      ctx.stroke();
+
+      ctx.restore();
     }
 
     return { minX, maxX, minY, maxY };
@@ -323,30 +325,30 @@ const GarminActivityEditor = () => {
 
     // 只有选中文字时才绘制缩放手柄（右上角）
     if (selectedElement === 'text') {
-      const handleSize = 16;
-      const cornerRadius = 4;
-
-      // 绘制美化的缩放手柄（右上角）
+      const handleSize = 24;
       const handleX = right - handleSize;
       const handleY = top;
 
-      // 绘制手柄背景
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
-      ctx.beginPath();
-      ctx.roundRect(handleX, handleY, handleSize, handleSize, cornerRadius);
-      ctx.fill();
-
-      // 绘制手柄边框
+      ctx.save();
+      ctx.translate(handleX, handleY);
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(11, 19); ctx.lineTo(5, 19); ctx.lineTo(5, 13);
       ctx.stroke();
 
-      // 绘制缩放图标（Aa）
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 8px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('Aa', handleX + handleSize/2, handleY + handleSize/2);
+      ctx.beginPath();
+      ctx.moveTo(13, 5); ctx.lineTo(19, 5); ctx.lineTo(19, 11);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(19, 5); ctx.lineTo(5, 19);
+      ctx.stroke();
+
+      ctx.restore();
     }
 
     return { left, right, top, bottom };
