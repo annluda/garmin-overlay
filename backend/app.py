@@ -56,10 +56,10 @@ def get_activities():
                 "activityName": a["activityName"],
                 "startTimeLocal": a["startTimeLocal"],
                 "activityType": a["activityType"]["typeKey"],
-                "distance": a["distance"],
-                "duration": a["duration"],
-                "calories": a["calories"],
-                "elevationGain": a["elevationGain"],
+                "distance": round(a["distance"]),
+                "duration": round(a["duration"]),
+                "calories": round(a["calories"]),
+                "elevationGain": round(a["elevationGain"]),
             }
             for a in activities
         ]
@@ -87,10 +87,10 @@ def get_activity_info(activity_id):
             "activityName": activity["activityName"],
             "startTimeLocal": activity["startTimeLocal"],
             "activityType": activity["activityType"]["typeKey"],
-            "distance": activity["distance"],
-            "duration": activity["duration"],
-            "calories": activity["calories"],
-            "elevationGain": activity["elevationGain"],
+            "distance": round(activity["distance"]),
+            "duration": round(activity["duration"]),
+            "calories": round(activity["calories"]),
+            "elevationGain": round(activity["elevationGain"]),
         }
         # 更新缓存
         activity_info_cache[activity_id] = {"data": info, "timestamp": now}
