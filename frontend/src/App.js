@@ -17,7 +17,13 @@ const GarminActivityEditor = () => {
   const [routeScale, setRouteScale] = useState(1);
   const [routeWidth, setRouteWidth] = useState(4);
   const [routeColor, setRouteColor] = useState('#FF5A3C');
-  const [textPosition, setTextPosition] = useState('bottom'); // 'top', 'bottom', 'left', 'right'
+
+  // 拖动相关状态
+  const [textOffset, setTextOffset] = useState({ x: 0, y: 0 });
+  const [routeOffset, setRouteOffset] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [startOffset, setStartOffset] = useState({ x: 0, y: 0 });
 
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -142,7 +148,7 @@ const GarminActivityEditor = () => {
     if (selectedActivity) {
       drawActivityInfo(ctx, selectedActivity);
     }
-  }, [uploadedImage, gpxData, selectedActivity, textSize, textColor, routeScale, routeWidth, routeColor, textPosition]);
+  }, [uploadedImage, gpxData, selectedActivity, textSize, textColor, routeScale, routeWidth, routeColor, textOffset, routeOffset]);
 
   // 绘制路线（优化后支持缩放）
   const drawRoute = (ctx, canvas, points) => {
@@ -158,31 +164,11 @@ const GarminActivityEditor = () => {
     const routeWidth_geo = maxLon - minLon;
     const routeHeight_geo = maxLat - minLat;
 
-    // 根据文字位置调整路线绘制区域
-    let availableWidth = canvas.width;
-    let availableHeight = canvas.height;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    const textAreaSize = textSize * 6; // 预估文字区域大小
-
-    if (textPosition === 'top' || textPosition === 'bottom') {
-      availableHeight -= textAreaSize;
-      if (textPosition === 'bottom') {
-        // 路线在上半部分
-      } else {
-        // 路线在下半部分
-        offsetY = textAreaSize;
-      }
-    } else if (textPosition === 'left' || textPosition === 'right') {
-      availableWidth -= textAreaSize;
-      if (textPosition === 'right') {
-        // 路线在左半部分
-      } else {
-        // 路线在右半部分
-        offsetX = textAreaSize;
-      }
-    }
+    // 使用整个画布
+    const availableWidth = canvas.width;
+    const availableHeight = canvas.height;
+    const offsetX = 0;
+    const offsetY = 0;
 
     // 基础边距，根据缩放调整
     const baseMargin = 50;
@@ -204,9 +190,9 @@ const GarminActivityEditor = () => {
       actualDrawWidth = maxDrawHeight * routeAspect;
     }
 
-    // 居中计算偏移量
-    const centerOffsetX = offsetX + (availableWidth - actualDrawWidth) / 2;
-    const centerOffsetY = offsetY + (availableHeight - actualDrawHeight) / 2;
+    // 居中计算偏移量，加上拖动偏移
+    const centerOffsetX = offsetX + (availableWidth - actualDrawWidth) / 2 + routeOffset.x;
+    const centerOffsetY = offsetY + (availableHeight - actualDrawHeight) / 2 + routeOffset.y;
 
     // 绘制路线
     ctx.beginPath();
@@ -229,7 +215,7 @@ const GarminActivityEditor = () => {
     ctx.stroke();
   };
 
-  // 绘制活动信息（根据位置调整）
+  // 绘制活动信息（固定底部居中初始位置，支持拖动）
   const drawActivityInfo = (ctx, activity) => {
     const smallTextSize = textSize * 0.4;
     ctx.fillStyle = textColor;
@@ -247,36 +233,11 @@ const GarminActivityEditor = () => {
       duration
     ];
 
-    let startX, startY;
-    const textAreaHeight = textSize * 6;
-    const textAreaWidth = ctx.canvas.width / 3;
+    const textAreaHeight = textSize * 6; // 预估文字区域大小
 
-    switch (textPosition) {
-      case 'top':
-        ctx.textAlign = 'center';
-        startX = ctx.canvas.width / 2;
-        startY = smallTextSize + 20;
-        break;
-      case 'bottom':
-        ctx.textAlign = 'center';
-        startX = ctx.canvas.width / 2;
-        startY = ctx.canvas.height - textAreaHeight + smallTextSize;
-        break;
-      case 'left':
-        ctx.textAlign = 'left';
-        startX = 20;
-        startY = (ctx.canvas.height - textAreaHeight) / 2 + smallTextSize;
-        break;
-      case 'right':
-        ctx.textAlign = 'right';
-        startX = ctx.canvas.width - 20;
-        startY = (ctx.canvas.height - textAreaHeight) / 2 + smallTextSize;
-        break;
-      default:
-        ctx.textAlign = 'center';
-        startX = ctx.canvas.width / 2;
-        startY = ctx.canvas.height - textAreaHeight + smallTextSize;
-    }
+    ctx.textAlign = 'center';
+    let startX = ctx.canvas.width / 2 + textOffset.x;
+    let startY = ctx.canvas.height - textAreaHeight + smallTextSize + textOffset.y;
 
     let currentY = startY;
     lines.forEach((line, index) => {
@@ -288,6 +249,148 @@ const GarminActivityEditor = () => {
       ctx.fillText(line, startX, currentY);
       currentY += textSize;
     });
+  };
+
+  // 鼠标按下事件
+  const handleMouseDown = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const ctx = canvas.getContext('2d');
+
+    // 先检查文字区域
+    if (selectedActivity) {
+      const smallTextSize = textSize * 0.4;
+      const textAreaHeight = textSize * 6;
+
+      ctx.textAlign = 'center';
+      const startX = canvas.width / 2 + textOffset.x;
+      const startY = canvas.height - textAreaHeight + smallTextSize + textOffset.y;
+
+      // 计算最大宽度
+      const lines = [
+        `距离`,
+        `${(selectedActivity.distance / 1000).toFixed(2)} km`,
+        `爬升海拔`,
+        `${selectedActivity.elevationGain.toFixed(0)} m`,
+        `时间`,
+        formatDuration(selectedActivity.duration)
+      ];
+      let maxWidth = 0;
+      lines.forEach((line, index) => {
+        if (index % 2 === 0) {
+          ctx.font = `${smallTextSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+        } else {
+          ctx.font = `${textSize}px 'DIN Alternate', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+        }
+        const metrics = ctx.measureText(line);
+        maxWidth = Math.max(maxWidth, metrics.width);
+      });
+
+      const padding = 10;
+      const left = startX - maxWidth / 2 - padding;
+      const right = startX + maxWidth / 2 + padding;
+      const top = startY - smallTextSize - padding;
+      const bottom = startY + (textSize * 5) + padding;
+
+      if (mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom) {
+        setDragging('text');
+        setDragStart({ x: mouseX, y: mouseY });
+        setStartOffset({ x: textOffset.x, y: textOffset.y });
+        return;
+      }
+    }
+
+    // 检查路线
+    if (gpxData && gpxData.length > 0) {
+      const points = gpxData;
+      const lats = points.map(p => p.lat);
+      const lons = points.map(p => p.lon);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLon = Math.min(...lons);
+      const maxLon = Math.max(...lons);
+
+      const routeWidth_geo = maxLon - minLon;
+      const routeHeight_geo = maxLat - minLat;
+
+      const availableWidth = canvas.width;
+      const availableHeight = canvas.height;
+
+      const baseMargin = 50;
+      const scaledMargin = baseMargin / routeScale;
+
+      const maxDrawWidth = (availableWidth - 2 * scaledMargin) * routeScale;
+      const maxDrawHeight = (availableHeight - 2 * scaledMargin) * routeScale;
+
+      const routeAspect = routeWidth_geo / routeHeight_geo;
+      const drawAspect = maxDrawWidth / maxDrawHeight;
+
+      let actualDrawWidth, actualDrawHeight;
+      if (routeAspect > drawAspect) {
+        actualDrawWidth = maxDrawWidth;
+        actualDrawHeight = maxDrawWidth / routeAspect;
+      } else {
+        actualDrawHeight = maxDrawHeight;
+        actualDrawWidth = maxDrawHeight * routeAspect;
+      }
+
+      const centerOffsetX = (availableWidth - actualDrawWidth) / 2 + routeOffset.x;
+      const centerOffsetY = (availableHeight - actualDrawHeight) / 2 + routeOffset.y;
+
+      ctx.beginPath();
+      ctx.lineWidth = routeWidth * routeScale;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      points.forEach((point, index) => {
+        const x = centerOffsetX + ((point.lon - minLon) / (maxLon - minLon)) * actualDrawWidth;
+        const y = centerOffsetY + ((maxLat - point.lat) / (maxLat - minLat)) * actualDrawHeight;
+
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+
+      if (ctx.isPointInStroke(mouseX, mouseY)) {
+        setDragging('route');
+        setDragStart({ x: mouseX, y: mouseY });
+        setStartOffset({ x: routeOffset.x, y: routeOffset.y });
+        return;
+      }
+    }
+  };
+
+  // 鼠标移动事件
+  const handleMouseMove = (e) => {
+    if (!dragging) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const dx = mouseX - dragStart.x;
+    const dy = mouseY - dragStart.y;
+
+    if (dragging === 'text') {
+      setTextOffset({ x: startOffset.x + dx, y: startOffset.y + dy });
+    } else if (dragging === 'route') {
+      setRouteOffset({ x: startOffset.x + dx, y: startOffset.y + dy });
+    }
+  };
+
+  // 鼠标抬起事件
+  const handleMouseUp = () => {
+    setDragging(null);
   };
 
   // 颜色选择器组件
@@ -324,7 +427,8 @@ const GarminActivityEditor = () => {
     setRouteScale(1);
     setRouteWidth(4);
     setRouteColor('#FF5A3C');
-    setTextPosition('bottom');
+    setTextOffset({ x: 0, y: 0 });
+    setRouteOffset({ x: 0, y: 0 });
   };
 
   // 工具函数
@@ -493,30 +597,6 @@ const GarminActivityEditor = () => {
                         colors={presetColors}
                       />
                     </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-2">文字位置</label>
-                      <div className="grid grid-cols-2 gap-1">
-                        {[
-                          { value: 'top', label: '顶部' },
-                          { value: 'bottom', label: '底部' },
-                          { value: 'left', label: '左侧' },
-                          { value: 'right', label: '右侧' }
-                        ].map(({ value, label }) => (
-                          <button
-                            key={value}
-                            onClick={() => setTextPosition(value)}
-                            className={`px-2 py-1 text-xs rounded ${
-                              textPosition === value
-                                ? 'bg-teal-500 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 </div>
 
@@ -587,7 +667,10 @@ const GarminActivityEditor = () => {
               <div className="relative w-full h-full flex items-center justify-center">
                 <canvas
                   ref={canvasRef}
-                  className="max-w-full max-h-full rounded-xl shadow-lg"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  className={`max-w-full max-h-full rounded-xl shadow-lg ${dragging ? 'cursor-grabbing' : 'cursor-auto'}`}
                 />
               </div>
             </div>
