@@ -1,27 +1,27 @@
 # --------------------
 # Frontend (React/Vite + Tailwind)
 # --------------------
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-frontend/.vite/
-frontend/*.log
+node_modules/
+dist/
+build/
+.vite/
+*.log
 
 # --------------------
 # Backend (Flask / Python)
 # --------------------
-backend/__pycache__/
-backend/*.py[cod]
-backend/*.pyo
-backend/*.egg-info/
-backend/.venv/
-backend/env/
-backend/venv/
-backend/instance/
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+env/
+venv/
+instance/
 
 # Tokens / Secrets / Data
-backend/.garmin_tokens/
-backend/gpx_data
+.garmin_tokens/
+gpx_data
 
 # --------------------
 # Env files

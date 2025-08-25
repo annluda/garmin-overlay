@@ -14,7 +14,7 @@ Base URL: http://<服务器IP>:9245
 
 请求示例:
 
-GET http://localhost:5000/activities
+GET http://localhost:9245/activities
 
 返回示例:
 
@@ -24,7 +24,7 @@ GET http://localhost:5000/activities
     "activityName": "Morning Ride",
     "startTimeLocal": "2025-08-20 07:30:00",
     "activityType": "cycling",
-    "distance": 12000.5,
+    "distance": 12000,
     "duration": 3600,
     "calories": 450,
     "elevationGain": 50
@@ -43,7 +43,7 @@ GET http://localhost:5000/activities
 
 请求示例:
 
-GET http://localhost:5000/activities/123456789/info
+GET http://localhost:9245/activities/123456789/info
 
 返回示例:
 
@@ -52,7 +52,7 @@ GET http://localhost:5000/activities/123456789/info
   "activityName": "Morning Ride",
   "startTimeLocal": "2025-08-20 07:30:00",
   "activityType": "cycling",
-  "distance": 12000.5,
+  "distance": 12000,
   "duration": 3600,
   "calories": 450,
   "elevationGain": 50
@@ -75,7 +75,7 @@ GET http://localhost:5000/activities/123456789/info
 
 请求示例:
 
-GET http://localhost:5000/activities/123456789/gpx
+GET http://localhost:9245/activities/123456789/gpx
 
 返回:
 	•	Content-Type: application/gpx+xml
