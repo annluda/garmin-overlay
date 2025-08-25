@@ -647,7 +647,7 @@ const GarminActivityEditor = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="container mx-auto p-5 max-w-7xl">
-        <h1 className="text-4xl font-light text-white text-center mb-8">
+        <h1 className="text-5xl font-extrabold text-white text-center mb-8">
           G A R M I N
         </h1>
 
