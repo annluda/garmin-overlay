@@ -49,7 +49,7 @@ def get_activities():
         return jsonify(activities_cache["data"])
 
     try:
-        activities = garmin.get_activities(0, 3)
+        activities = garmin.get_activities(0, 5)
         result = [
             {
                 "activityId": a["activityId"],

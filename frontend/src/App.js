@@ -24,6 +24,9 @@ const GarminActivityEditor = () => {
   const [dragging, setDragging] = useState(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [startOffset, setStartOffset] = useState({ x: 0, y: 0 });
+  const [startTextSize, setStartTextSize] = useState(0);
+  const [startRouteScale, setStartRouteScale] = useState(0);
+  const [startRouteWidth, setStartRouteWidth] = useState(0);
 
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -140,19 +143,22 @@ const GarminActivityEditor = () => {
     ctx.drawImage(uploadedImage, 0, 0, canvas.width, canvas.height);
 
     // 绘制路线
+    let routeBounds = null;
     if (gpxData && gpxData.length > 0) {
-      drawRoute(ctx, canvas, gpxData);
+      routeBounds = drawRoute(ctx, canvas, gpxData);
     }
 
     // 绘制活动信息
+    let textBounds = null;
     if (selectedActivity) {
-      drawActivityInfo(ctx, selectedActivity);
+      textBounds = drawActivityInfo(ctx, selectedActivity);
     }
+
   }, [uploadedImage, gpxData, selectedActivity, textSize, textColor, routeScale, routeWidth, routeColor, textOffset, routeOffset]);
 
-  // 绘制路线（优化后支持缩放）
+  // 绘制路线（优化后支持缩放，返回边界）
   const drawRoute = (ctx, canvas, points) => {
-    if (points.length < 2) return;
+    if (points.length < 2) return null;
 
     const lats = points.map(p => p.lat);
     const lons = points.map(p => p.lon);
@@ -201,6 +207,8 @@ const GarminActivityEditor = () => {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
     points.forEach((point, index) => {
       const x = centerOffsetX + ((point.lon - minLon) / (maxLon - minLon)) * actualDrawWidth;
       const y = centerOffsetY + ((maxLat - point.lat) / (maxLat - minLat)) * actualDrawHeight;
@@ -210,12 +218,38 @@ const GarminActivityEditor = () => {
       } else {
         ctx.lineTo(x, y);
       }
+
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
     });
 
     ctx.stroke();
+
+    // 调整边界以包含线宽
+    const halfWidth = (routeWidth * routeScale) / 2;
+    minX -= halfWidth;
+    maxX += halfWidth;
+    minY -= halfWidth;
+    maxY += halfWidth;
+
+    // 绘制缩放手柄（右下角）
+    const handleSize = 10;
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillRect(maxX - handleSize, maxY - handleSize, handleSize, handleSize);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(maxX - handleSize, maxY - handleSize, handleSize, handleSize);
+
+    // 绘制宽度手柄（左下角，可选）
+    ctx.fillRect(minX, maxY - handleSize, handleSize, handleSize);
+    ctx.strokeRect(minX, maxY - handleSize, handleSize, handleSize);
+
+    return { minX, maxX, minY, maxY };
   };
 
-  // 绘制活动信息（固定底部居中初始位置，支持拖动）
+  // 绘制活动信息（返回边界）
   const drawActivityInfo = (ctx, activity) => {
     const smallTextSize = textSize * 0.4;
     ctx.fillStyle = textColor;
@@ -249,6 +283,34 @@ const GarminActivityEditor = () => {
       ctx.fillText(line, startX, currentY);
       currentY += textSize;
     });
+
+    // 计算边界
+    let maxWidth = 0;
+    lines.forEach((line, index) => {
+      if (index % 2 === 0) {
+        ctx.font = `${smallTextSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+      } else {
+        ctx.font = `${textSize}px 'DIN Alternate', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+      }
+      const metrics = ctx.measureText(line);
+      maxWidth = Math.max(maxWidth, metrics.width);
+    });
+
+    const padding = 10;
+    const left = startX - maxWidth / 2 - padding;
+    const right = startX + maxWidth / 2 + padding;
+    const top = startY - smallTextSize - padding;
+    const bottom = startY + (textSize * 5) + padding;
+
+    // 绘制缩放手柄（右下角）
+    const handleSize = 10;
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillRect(right - handleSize, bottom - handleSize, handleSize, handleSize);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(right - handleSize, bottom - handleSize, handleSize, handleSize);
+
+    return { left, right, top, bottom };
   };
 
   // 鼠标按下事件
@@ -297,6 +359,21 @@ const GarminActivityEditor = () => {
       const top = startY - smallTextSize - padding;
       const bottom = startY + (textSize * 5) + padding;
 
+      // 检查缩放手柄
+      const handleSize = 10;
+      const handleLeft = right - handleSize;
+      const handleTop = bottom - handleSize;
+      const handleRight = right;
+      const handleBottom = bottom;
+
+      if (mouseX >= handleLeft && mouseX <= handleRight && mouseY >= handleTop && mouseY <= handleBottom) {
+        setDragging('resize_text');
+        setDragStart({ x: mouseX, y: mouseY });
+        setStartTextSize(textSize);
+        return;
+      }
+
+      // 检查文字区域以拖动
       if (mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom) {
         setDragging('text');
         setDragStart({ x: mouseX, y: mouseY });
@@ -342,6 +419,51 @@ const GarminActivityEditor = () => {
       const centerOffsetX = (availableWidth - actualDrawWidth) / 2 + routeOffset.x;
       const centerOffsetY = (availableHeight - actualDrawHeight) / 2 + routeOffset.y;
 
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+      points.forEach((point) => {
+        const x = centerOffsetX + ((point.lon - minLon) / (maxLon - minLon)) * actualDrawWidth;
+        const y = centerOffsetY + ((maxLat - point.lat) / (maxLat - minLat)) * actualDrawHeight;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      });
+
+      const halfWidth = (routeWidth * routeScale) / 2;
+      minX -= halfWidth;
+      maxX += halfWidth;
+      minY -= halfWidth;
+      maxY += halfWidth;
+
+      // 检查缩放手柄（右下角）
+      const handleSize = 10;
+      const scaleHandleLeft = maxX - handleSize;
+      const scaleHandleTop = maxY - handleSize;
+      const scaleHandleRight = maxX;
+      const scaleHandleBottom = maxY;
+
+      if (mouseX >= scaleHandleLeft && mouseX <= scaleHandleRight && mouseY >= scaleHandleTop && mouseY <= scaleHandleBottom) {
+        setDragging('resize_route_scale');
+        setDragStart({ x: mouseX, y: mouseY });
+        setStartRouteScale(routeScale);
+        return;
+      }
+
+      // 检查宽度手柄（左下角）
+      const widthHandleLeft = minX;
+      const widthHandleTop = maxY - handleSize;
+      const widthHandleRight = minX + handleSize;
+      const widthHandleBottom = maxY;
+
+      if (mouseX >= widthHandleLeft && mouseX <= widthHandleRight && mouseY >= widthHandleTop && mouseY <= widthHandleBottom) {
+        setDragging('resize_route_width');
+        setDragStart({ x: mouseX, y: mouseY });
+        setStartRouteWidth(routeWidth);
+        return;
+      }
+
+      // 检查路线路径以拖动
       ctx.beginPath();
       ctx.lineWidth = routeWidth * routeScale;
       ctx.lineCap = 'round';
@@ -381,10 +503,18 @@ const GarminActivityEditor = () => {
     const dx = mouseX - dragStart.x;
     const dy = mouseY - dragStart.y;
 
-    if (dragging === 'text') {
-      setTextOffset({ x: startOffset.x + dx, y: startOffset.y + dy });
-    } else if (dragging === 'route') {
-      setRouteOffset({ x: startOffset.x + dx, y: startOffset.y + dy });
+    if (dragging === 'text' || dragging === 'route') {
+      if (dragging === 'text') {
+        setTextOffset({ x: startOffset.x + dx, y: startOffset.y + dy });
+      } else if (dragging === 'route') {
+        setRouteOffset({ x: startOffset.x + dx, y: startOffset.y + dy });
+      }
+    } else if (dragging === 'resize_text') {
+      setTextSize(Math.max(12, Math.min(48, startTextSize + dy / 5)));
+    } else if (dragging === 'resize_route_scale') {
+      setRouteScale(Math.max(0.3, Math.min(2, startRouteScale + dy / 100)));
+    } else if (dragging === 'resize_route_width') {
+      setRouteWidth(Math.max(1, Math.min(12, startRouteWidth + dy / 10)));
     }
   };
 
@@ -463,6 +593,12 @@ const GarminActivityEditor = () => {
       default: return '🏃';
     }
   };
+
+  const cursorClass = dragging
+    ? dragging.startsWith('resize')
+      ? 'cursor-nwse-resize'
+      : 'cursor-grabbing'
+    : 'cursor-auto';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
@@ -569,26 +705,13 @@ const GarminActivityEditor = () => {
 
         {step === 'edit' && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 h-[calc(100vh-150px)]">
-            {/* 侧边栏 - 只显示样式控制 */}
+            {/* 侧边栏 - 只显示颜色控制和按钮 */}
             <div className="lg:col-span-1 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-xl overflow-y-auto">
               <div className="space-y-6">
                 {/* 文字控制 */}
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-3">文字设置</h3>
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-2">文字大小</label>
-                      <input
-                        type="range"
-                        min="12"
-                        max="48"
-                        value={textSize}
-                        onChange={(e) => setTextSize(parseInt(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="text-xs text-gray-500 text-center">{textSize}px</div>
-                    </div>
-
                     <div>
                       <label className="block text-xs text-gray-600 mb-2">文字颜色</label>
                       <ColorPicker
@@ -604,33 +727,6 @@ const GarminActivityEditor = () => {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-3">路线设置</h3>
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-2">路线缩放</label>
-                      <input
-                        type="range"
-                        min="0.3"
-                        max="2"
-                        step="0.1"
-                        value={routeScale}
-                        onChange={(e) => setRouteScale(parseFloat(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="text-xs text-gray-500 text-center">{routeScale}x</div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-2">路线宽度</label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="12"
-                        value={routeWidth}
-                        onChange={(e) => setRouteWidth(parseInt(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="text-xs text-gray-500 text-center">{routeWidth}px</div>
-                    </div>
-
                     <div>
                       <label className="block text-xs text-gray-600 mb-2">路线颜色</label>
                       <ColorPicker
@@ -670,7 +766,7 @@ const GarminActivityEditor = () => {
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
-                  className={`max-w-full max-h-full rounded-xl shadow-lg ${dragging ? 'cursor-grabbing' : 'cursor-auto'}`}
+                  className={`max-w-full max-h-full rounded-xl shadow-lg ${cursorClass}`}
                 />
               </div>
             </div>
