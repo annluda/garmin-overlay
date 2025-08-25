@@ -28,6 +28,9 @@ const GarminActivityEditor = () => {
   const [startRouteScale, setStartRouteScale] = useState(0);
   const [startRouteWidth, setStartRouteWidth] = useState(0);
 
+  // 新增：选中状态
+  const [selectedElement, setSelectedElement] = useState(null); // 'text' or 'route' or null
+
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -154,7 +157,7 @@ const GarminActivityEditor = () => {
       textBounds = drawActivityInfo(ctx, selectedActivity);
     }
 
-  }, [uploadedImage, gpxData, selectedActivity, textSize, textColor, routeScale, routeWidth, routeColor, textOffset, routeOffset]);
+  }, [uploadedImage, gpxData, selectedActivity, textSize, textColor, routeScale, routeWidth, routeColor, textOffset, routeOffset, selectedElement]);
 
   // 绘制路线（优化后支持缩放，返回边界）
   const drawRoute = (ctx, canvas, points) => {
@@ -234,17 +237,33 @@ const GarminActivityEditor = () => {
     minY -= halfWidth;
     maxY += halfWidth;
 
-    // 绘制缩放手柄（右下角）
-    const handleSize = 10;
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillRect(maxX - handleSize, maxY - handleSize, handleSize, handleSize);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(maxX - handleSize, maxY - handleSize, handleSize, handleSize);
+    // 只有选中路线时才绘制缩放手柄（右上角）
+    if (selectedElement === 'route') {
+      const handleSize = 16;
+      const cornerRadius = 4;
 
-    // 绘制宽度手柄（左下角，可选）
-    ctx.fillRect(minX, maxY - handleSize, handleSize, handleSize);
-    ctx.strokeRect(minX, maxY - handleSize, handleSize, handleSize);
+      // 绘制美化的缩放手柄（右上角）
+      const handleX = maxX - handleSize;
+      const handleY = minY;
+
+      // 绘制手柄背景
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(handleX, handleY, handleSize, handleSize, cornerRadius);
+      ctx.fill();
+
+      // 绘制手柄边框
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 绘制缩放图标（双箭头）
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⤡', handleX + handleSize/2, handleY + handleSize/2);
+    }
 
     return { minX, maxX, minY, maxY };
   };
@@ -302,13 +321,33 @@ const GarminActivityEditor = () => {
     const top = startY - smallTextSize - padding;
     const bottom = startY + (textSize * 5) + padding;
 
-    // 绘制缩放手柄（右下角）
-    const handleSize = 10;
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillRect(right - handleSize, bottom - handleSize, handleSize, handleSize);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(right - handleSize, bottom - handleSize, handleSize, handleSize);
+    // 只有选中文字时才绘制缩放手柄（右上角）
+    if (selectedElement === 'text') {
+      const handleSize = 16;
+      const cornerRadius = 4;
+
+      // 绘制美化的缩放手柄（右上角）
+      const handleX = right - handleSize;
+      const handleY = top;
+
+      // 绘制手柄背景
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(handleX, handleY, handleSize, handleSize, cornerRadius);
+      ctx.fill();
+
+      // 绘制手柄边框
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 绘制缩放图标（Aa）
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Aa', handleX + handleSize/2, handleY + handleSize/2);
+    }
 
     return { left, right, top, bottom };
   };
@@ -359,22 +398,25 @@ const GarminActivityEditor = () => {
       const top = startY - smallTextSize - padding;
       const bottom = startY + (textSize * 5) + padding;
 
-      // 检查缩放手柄
-      const handleSize = 10;
-      const handleLeft = right - handleSize;
-      const handleTop = bottom - handleSize;
-      const handleRight = right;
-      const handleBottom = bottom;
+      // 检查缩放手柄（右上角）
+      if (selectedElement === 'text') {
+        const handleSize = 16;
+        const handleLeft = right - handleSize;
+        const handleTop = top;
+        const handleRight = right;
+        const handleBottom = top + handleSize;
 
-      if (mouseX >= handleLeft && mouseX <= handleRight && mouseY >= handleTop && mouseY <= handleBottom) {
-        setDragging('resize_text');
-        setDragStart({ x: mouseX, y: mouseY });
-        setStartTextSize(textSize);
-        return;
+        if (mouseX >= handleLeft && mouseX <= handleRight && mouseY >= handleTop && mouseY <= handleBottom) {
+          setDragging('resize_text');
+          setDragStart({ x: mouseX, y: mouseY });
+          setStartTextSize(textSize);
+          return;
+        }
       }
 
-      // 检查文字区域以拖动
+      // 检查文字区域以拖动/选择
       if (mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom) {
+        setSelectedElement('text');
         setDragging('text');
         setDragStart({ x: mouseX, y: mouseY });
         setStartOffset({ x: textOffset.x, y: textOffset.y });
@@ -436,34 +478,23 @@ const GarminActivityEditor = () => {
       minY -= halfWidth;
       maxY += halfWidth;
 
-      // 检查缩放手柄（右下角）
-      const handleSize = 10;
-      const scaleHandleLeft = maxX - handleSize;
-      const scaleHandleTop = maxY - handleSize;
-      const scaleHandleRight = maxX;
-      const scaleHandleBottom = maxY;
+      // 检查缩放手柄（右上角）
+      if (selectedElement === 'route') {
+        const handleSize = 16;
+        const scaleHandleLeft = maxX - handleSize;
+        const scaleHandleTop = minY;
+        const scaleHandleRight = maxX;
+        const scaleHandleBottom = minY + handleSize;
 
-      if (mouseX >= scaleHandleLeft && mouseX <= scaleHandleRight && mouseY >= scaleHandleTop && mouseY <= scaleHandleBottom) {
-        setDragging('resize_route_scale');
-        setDragStart({ x: mouseX, y: mouseY });
-        setStartRouteScale(routeScale);
-        return;
+        if (mouseX >= scaleHandleLeft && mouseX <= scaleHandleRight && mouseY >= scaleHandleTop && mouseY <= scaleHandleBottom) {
+          setDragging('resize_route_scale');
+          setDragStart({ x: mouseX, y: mouseY });
+          setStartRouteScale(routeScale);
+          return;
+        }
       }
 
-      // 检查宽度手柄（左下角）
-      const widthHandleLeft = minX;
-      const widthHandleTop = maxY - handleSize;
-      const widthHandleRight = minX + handleSize;
-      const widthHandleBottom = maxY;
-
-      if (mouseX >= widthHandleLeft && mouseX <= widthHandleRight && mouseY >= widthHandleTop && mouseY <= widthHandleBottom) {
-        setDragging('resize_route_width');
-        setDragStart({ x: mouseX, y: mouseY });
-        setStartRouteWidth(routeWidth);
-        return;
-      }
-
-      // 检查路线路径以拖动
+      // 检查路线路径以拖动/选择
       ctx.beginPath();
       ctx.lineWidth = routeWidth * routeScale;
       ctx.lineCap = 'round';
@@ -481,12 +512,16 @@ const GarminActivityEditor = () => {
       });
 
       if (ctx.isPointInStroke(mouseX, mouseY)) {
+        setSelectedElement('route');
         setDragging('route');
         setDragStart({ x: mouseX, y: mouseY });
         setStartOffset({ x: routeOffset.x, y: routeOffset.y });
         return;
       }
     }
+
+    // 如果没有点击任何元素，取消选择
+    setSelectedElement(null);
   };
 
   // 鼠标移动事件
@@ -513,8 +548,6 @@ const GarminActivityEditor = () => {
       setTextSize(Math.max(12, Math.min(48, startTextSize + dy / 5)));
     } else if (dragging === 'resize_route_scale') {
       setRouteScale(Math.max(0.3, Math.min(2, startRouteScale + dy / 100)));
-    } else if (dragging === 'resize_route_width') {
-      setRouteWidth(Math.max(1, Math.min(12, startRouteWidth + dy / 10)));
     }
   };
 
@@ -559,6 +592,7 @@ const GarminActivityEditor = () => {
     setRouteColor('#FF5A3C');
     setTextOffset({ x: 0, y: 0 });
     setRouteOffset({ x: 0, y: 0 });
+    setSelectedElement(null);
   };
 
   // 工具函数
@@ -705,7 +739,7 @@ const GarminActivityEditor = () => {
 
         {step === 'edit' && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 h-[calc(100vh-150px)]">
-            {/* 侧边栏 - 只显示颜色控制和按钮 */}
+            {/* 侧边栏 - 颜色控制和路线宽度 */}
             <div className="lg:col-span-1 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-xl overflow-y-auto">
               <div className="space-y-6">
                 {/* 文字控制 */}
@@ -735,7 +769,32 @@ const GarminActivityEditor = () => {
                         colors={presetColors}
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-2">
+                        路线宽度: {routeWidth}px
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="12"
+                        step="0.5"
+                        value={routeWidth}
+                        onChange={(e) => setRouteWidth(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1">
+                        <span>1px</span>
+                        <span>12px</span>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                {/* 提示信息 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    💡 点击文字或路线来选择，选中后会显示缩放手柄。拖拽元素来移动位置。
+                  </p>
                 </div>
 
                 {/* 操作按钮 */}
