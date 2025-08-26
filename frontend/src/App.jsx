@@ -222,9 +222,12 @@ const GarminOverlayApp = () => {
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.lineWidth = 2;
 
-        const text = `${selectedActivity.activityName}
-${formatDistance(selectedActivity.distance)} • ${formatDuration(selectedActivity.duration)}
-${selectedActivity.calories} cal • ${selectedActivity.elevationGain}m ↑`;
+        const text = `距离
+${formatDistance(selectedActivity.distance)}
+爬升海拔
+${selectedActivity.elevationGain}m
+时间
+${formatDuration(selectedActivity.duration)}`;
 
         const lines = text.split('\n');
         lines.forEach((line, index) => {
@@ -451,8 +454,7 @@ ${selectedActivity.calories} cal • ${selectedActivity.elevationGain}m ↑`;
     <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 flex items-center justify-center p-4">
       <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 shadow-2xl max-w-md w-full text-center">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Garmin Overlay</h1>
-          <p className="text-white/80">为您的照片添加运动数据</p>
+          <h1 className="text-3xl font-extrabold text-white mb-2">G A R M I N</h1>
         </div>
 
         <div
@@ -467,7 +469,6 @@ ${selectedActivity.calories} cal • ${selectedActivity.elevationGain}m ↑`;
         >
           <Upload className="w-16 h-16 text-white/70 mx-auto mb-4" />
           <p className="text-white/80 text-lg mb-2">上传图片</p>
-          <p className="text-white/60 text-sm">支持拖拽或点击选择</p>
         </div>
 
         <input
@@ -478,12 +479,6 @@ ${selectedActivity.calories} cal • ${selectedActivity.elevationGain}m ↑`;
           onChange={(e) => handleImageUpload(e.target.files[0])}
         />
 
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full bg-white/20 hover:bg-white/30 text-white font-medium py-3 px-6 rounded-2xl transition-all duration-200 backdrop-blur-sm"
-        >
-          选择图片
-        </button>
       </div>
     </div>
   );
