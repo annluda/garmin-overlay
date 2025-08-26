@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 
-const BACKEND_BASE = "http://localhost:9245"; // replace with your server
+const BACKEND_BASE = "http://172.20.10.2:9245"; // replace with your server
 
 export default function GarminOverlayApp() {
   const [page, setPage] = useState("upload"); // upload | activities | editor
@@ -408,12 +408,11 @@ export default function GarminOverlayApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-700 text-white flex items-center justify-center p-4">
+    <div className="min-h-screen w-screen bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-700 text-white flex items-center justify-center p-4">
       <div className="w-full max-w-xl mx-auto">
         {page === "upload" && (
           <div className="backdrop-blur-xl bg-white/10 rounded-2xl p-8 text-center shadow-md">
             <h1 className="text-3xl font-semibold mb-4">Garmin Overlay</h1>
-            <p className="mb-4 text-sm opacity-90">上传一张照片作为背景，然后选择活动生成叠加图。</p>
             <label className="inline-flex flex-col items-center justify-center cursor-pointer">
               <input type="file" accept="image/*" className="hidden" onChange={(e) => onImageSelected(e.target.files?.[0])} />
               <div className="w-36 h-36 rounded-full bg-white/20 flex items-center justify-center text-xl font-medium shadow-lg">上传照片</div>
@@ -477,29 +476,45 @@ export default function GarminOverlayApp() {
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
                 <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}>文字</button>
                 <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}>路线</button>
-                <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => setOpenPanel(openPanel === 'export' ? null : 'export')}>导出</button>
-                <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => { resetTransforms(); setOpenPanel(null); }}>重置</button>
               </div>
             </div>
 
             {/* Sliding panels */}
             <div className={`fixed left-4 right-4 bottom-20 rounded-xl bg-white/6 backdrop-blur-xl p-4 transition-transform duration-300 ${openPanel ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0 pointer-events-none'}`}>
               {openPanel === 'text' && (
-                <div>
-                  <div className="text-sm mb-2">文字大小</div>
-                  <input type="range" min={12} max={72} value={textStyle.size} onChange={(e) => setTextStyle((s)=>({...s, size: Number(e.target.value)}))} className="w-full" />
-                  <div className="flex items-center gap-2 mt-3">
-                    <div className="text-sm">颜色</div>
-                    <input type="color" value={textStyle.color} onChange={(e)=>setTextStyle((s)=>({...s, color:e.target.value}))} />
+                <div className="flex items-center gap-4 mt-3">
+                  {/* 颜色选择器 */}
+                  <div className="flex flex-col items-center">
+                    <input
+                      type="color"
+                      value={textStyle.color}
+                      onChange={(e) =>
+                        setTextStyle((s) => ({ ...s, color: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  {/* 大小滑块 */}
+                  <div className="flex flex-col items-center flex-1">
+                    <input
+                      type="range"
+                      min={36}
+                      max={120}
+                      value={textStyle.size}
+                      onChange={(e) =>
+                        setTextStyle((s) => ({ ...s, size: Number(e.target.value) }))
+                      }
+                      className="w-full"
+                    />
                   </div>
                 </div>
               )}
 
               {openPanel === 'route' && (
                 <div>
-                  <div className="text-sm mb-2">路线宽度</div>
+                  <div className="text-sm mb-2">宽度</div>
                   <input type="range" min={1} max={20} value={routeStyle.width} onChange={(e)=>setRouteStyle((s)=>({...s, width: Number(e.target.value)}))} className="w-full" />
-                  <div className="text-sm mt-3 mb-2">路线缩放（捏合 / 拖动也可）</div>
+                  <div className="text-sm mt-3 mb-2">缩放</div>
                   <div className="flex gap-2 items-center">
                     <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setRouteStyle((s)=>({...s, scale: Math.min(20, s.scale*1.12)}))}>放大</button>
                     <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setRouteStyle((s)=>({...s, scale: Math.max(0.05, s.scale*0.88)}))}>缩小</button>
