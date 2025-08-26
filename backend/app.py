@@ -82,15 +82,16 @@ def get_activity_info(activity_id):
 
     try:
         activity = garmin.get_activity(activity_id)
+        print(activity)
         info = {
             "activityId": activity["activityId"],
             "activityName": activity["activityName"],
-            "startTimeLocal": activity["startTimeLocal"],
-            "activityType": activity["activityType"]["typeKey"],
-            "distance": round(activity["distance"]),
-            "duration": round(activity["duration"]),
-            "calories": round(activity["calories"]),
-            "elevationGain": round(activity["elevationGain"]),
+            "startTimeLocal": activity["summaryDTO"]["startTimeLocal"],
+            "activityType": activity["activityTypeDTO"]["typeKey"],
+            "distance": round(activity["summaryDTO"]["distance"]),
+            "duration": round(activity["summaryDTO"]["duration"]),
+            "calories": round(activity["summaryDTO"]["calories"]),
+            "elevationGain": round(activity["summaryDTO"]["elevationGain"]),
         }
         # 更新缓存
         activity_info_cache[activity_id] = {"data": info, "timestamp": now}
