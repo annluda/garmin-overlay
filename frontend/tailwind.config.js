@@ -1,14 +1,19 @@
 /** @type {import('tailwindcss').Config} */
+export default {
+  content: [],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+
 module.exports = {
   content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {
-      backdropBlur: {
-        'xl': '24px',
-      }
-    },
+    extend: {},
   },
   plugins: [],
 }
