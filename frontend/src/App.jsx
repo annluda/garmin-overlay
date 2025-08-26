@@ -1,887 +1,536 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Upload, ArrowLeft, Download, Move, Type, Route, Undo, Redo, Calendar, MapPin, Clock, Flame, TrendingUp } from 'lucide-react';
+import React, { useRef, useState, useEffect } from "react";
 
-const GarminOverlayApp = () => {
-  const [currentPage, setCurrentPage] = useState('upload'); // 'upload', 'activities', 'editor'
-  const [uploadedImage, setUploadedImage] = useState(null);
-  const [selectedActivity, setSelectedActivity] = useState(null);
+const BACKEND_BASE = "http://localhost:9245"; // replace with your server
+
+export default function GarminOverlayApp() {
+  const [page, setPage] = useState("upload"); // upload | activities | editor
+  const [imageFile, setImageFile] = useState(null);
+  const [imageUrl, setImageUrl] = useState(null);
   const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [gpxData, setGpxData] = useState(null);
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [gpxText, setGpxText] = useState(null);
 
-  // 编辑器状态
-  const [textStyle, setTextStyle] = useState({
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    position: { x: 50, y: 50 }
-  });
+  const [routeCoords, setRouteCoords] = useState([]);
+  const [routeBBox, setRouteBBox] = useState(null); // {minLat,maxLat,minLon,maxLon}
 
-  const [routeStyle, setRouteStyle] = useState({
-    color: '#FF3B30',
-    width: 4,
-    opacity: 0.8,
-    scale: 1,
-    position: { x: 0, y: 0 }
-  });
+  // overlay style state
+  const [textStyle, setTextStyle] = useState({ size: 20, color: "#ffffff" });
+  const [routeStyle, setRouteStyle] = useState({ color: "#00FFAA", width: 3, alpha: 0.9, scale: 1, offsetX: 0, offsetY: 0 });
 
-  const [showTextPanel, setShowTextPanel] = useState(false);
-  const [showRoutePanel, setShowRoutePanel] = useState(false);
-  const [canvasReady, setCanvasReady] = useState(false);
-  const [isDragging, setIsDragging] = useState(null); // 'text' | 'route' | null
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [textPos, setTextPos] = useState({ x: 30, y: 60 });
 
-  const fileInputRef = useRef(null);
+  const [openPanel, setOpenPanel] = useState(null); // 'text' | 'route' | 'export' | null
+
   const canvasRef = useRef(null);
+  const imgRef = useRef(null);
+  const gestureRef = useRef({});
 
-  // 模拟活动数据（如果API不可用时使用）
-  const mockActivities = [
-    {
-      activityId: 1,
-      activityName: "Morning Ride",
-      startTimeLocal: "2025-08-20 07:30:00",
-      activityType: "cycling",
-      distance: 12000,
-      duration: 3600,
-      calories: 450,
-      elevationGain: 50
-    },
-    {
-      activityId: 2,
-      activityName: "Evening Run",
-      startTimeLocal: "2025-08-19 18:00:00",
-      activityType: "running",
-      distance: 8000,
-      duration: 2400,
-      calories: 380,
-      elevationGain: 30
-    },
-    {
-      activityId: 3,
-      activityName: "Weekend Hike",
-      startTimeLocal: "2025-08-18 09:00:00",
-      activityType: "hiking",
-      distance: 15000,
-      duration: 5400,
-      calories: 650,
-      elevationGain: 200
-    }
-  ];
+  useEffect(() => {
+    if (page === "activities") fetchActivities();
+  }, [page]);
 
-  // 处理图片上传
-  const handleImageUpload = (file) => {
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedImage(e.target.result);
-        setCurrentPage('activities');
-        loadActivities();
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // 加载活动列表
-  const loadActivities = async () => {
-    setLoading(true);
+  async function fetchActivities() {
     try {
-      const response = await fetch('http://localhost:9245/activities');
-      if (response.ok) {
-        const data = await response.json();
-        setActivities(data);
-      } else {
-        // 如果API不可用，使用模拟数据
-        setActivities(mockActivities);
-      }
-    } catch (error) {
-      console.log('API不可用，使用模拟数据');
-      setActivities(mockActivities);
+      const res = await fetch(`${BACKEND_BASE}/activities`);
+      const data = await res.json();
+      setActivities(data);
+    } catch (e) {
+      console.error(e);
+      setActivities([]);
     }
-    setLoading(false);
-  };
+  }
 
-  // 选择活动
-  const selectActivity = async (activity) => {
-    setSelectedActivity(activity);
-    setLoading(true);
-
+  async function fetchActivityGPX(activityId) {
     try {
-      // 尝试获取GPX数据
-      const response = await fetch(`http://localhost:9245/activities/${activity.activityId}/gpx`);
-      if (response.ok) {
-        const gpxText = await response.text();
-        setGpxData(parseGPX(gpxText));
-      } else {
-        // 模拟GPX数据
-        setGpxData(generateMockGPXData());
-      }
-    } catch (error) {
-      console.log('GPX数据不可用，使用模拟数据');
-      setGpxData(generateMockGPXData());
+      const res = await fetch(`${BACKEND_BASE}/activities/${activityId}/gpx`);
+      const text = await res.text();
+      return text;
+    } catch (e) {
+      console.error(e);
+      return null;
     }
+  }
 
-    setLoading(false);
-    setCurrentPage('editor');
-  };
+  function onImageSelected(file) {
+    if (!file) return;
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setImageUrl(url);
+    // small delay so UI shows upload
+    setTimeout(() => setPage("activities"), 300);
+  }
 
-  // 解析GPX数据
-  const parseGPX = (gpxText) => {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(gpxText, 'text/xml');
-    const trackPoints = xmlDoc.querySelectorAll('trkpt');
+  async function onSelectActivity(act) {
+    setSelectedActivity(act);
+    const gpx = await fetchActivityGPX(act.activityId);
+    setGpxText(gpx);
+    setPage("editor");
+  }
 
-    const points = Array.from(trackPoints).map(point => ({
-      lat: parseFloat(point.getAttribute('lat')),
-      lon: parseFloat(point.getAttribute('lon'))
-    }));
-
-    return points;
-  };
-
-  // 生成模拟GPX数据
-  const generateMockGPXData = () => {
-    const points = [];
-    const centerLat = 40.7589;
-    const centerLon = -73.9851;
-
-    for (let i = 0; i < 50; i++) {
-      points.push({
-        lat: centerLat + (Math.random() - 0.5) * 0.01,
-        lon: centerLon + (Math.random() - 0.5) * 0.01
-      });
+  function parseGPX(gpx) {
+    if (!gpx) return [];
+    try {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(gpx, "application/xml");
+      const trks = Array.from(xml.querySelectorAll("trk trkseg trkpt"));
+      const pts = trks.length > 0 ? trks : Array.from(xml.querySelectorAll("rte rtept"));
+      return pts.map((pt) => ({ lat: parseFloat(pt.getAttribute("lat")), lon: parseFloat(pt.getAttribute("lon")) }));
+    } catch (e) {
+      console.error("GPX parse error", e);
+      return [];
     }
+  }
 
-    return points;
-  };
-
-  // 格式化距离
-  const formatDistance = (meters) => {
-    if (meters >= 1000) {
-      return `${(meters / 1000).toFixed(1)}km`;
-    }
-    return `${meters}m`;
-  };
-
-  // 格式化时间
-  const formatDuration = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
-
-  // 格式化日期
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  // compute bbox and set initial transform for route when both image and coords available
+  function computeRouteInitialTransform(coords, imgW, imgH) {
+    if (!coords || coords.length === 0 || !imgW || !imgH) return;
+    let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+    coords.forEach((c) => {
+      if (c.lat < minLat) minLat = c.lat;
+      if (c.lat > maxLat) maxLat = c.lat;
+      if (c.lon < minLon) minLon = c.lon;
+      if (c.lon > maxLon) maxLon = c.lon;
     });
-  };
+    const pad = 0.02;
+    minLat -= pad; maxLat += pad; minLon -= pad; maxLon += pad;
 
-  // 获取活动类型图标
-  const getActivityIcon = (type) => {
-    switch (type) {
-      case 'cycling':
-        return '🚴';
-      case 'running':
-        return '🏃';
-      case 'hiking':
-        return '🥾';
-      default:
-        return '🏃';
+    const latRange = maxLat - minLat || 1;
+    const lonRange = maxLon - minLon || 1;
+
+    // map to unscaled pixel coords
+    const xs = coords.map(c => ((c.lon - minLon) / lonRange) * imgW);
+    const ys = coords.map(c => ((maxLat - c.lat) / latRange) * imgH);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const dx = maxX - minX || imgW;
+    const dy = maxY - minY || imgH;
+
+    const scaleX = (imgW * 0.85) / dx;
+    const scaleY = (imgH * 0.85) / dy;
+    const scale = Math.min(scaleX, scaleY, 1.0);
+
+    const offsetX = (imgW - dx * scale) / 2 - minX * scale;
+    const offsetY = (imgH - dy * scale) / 2 - minY * scale;
+
+    setRouteStyle((s) => ({ ...s, scale, offsetX, offsetY }));
+    setRouteBBox({ minLat, maxLat, minLon, maxLon });
+  }
+
+  // when gpx or image loads, parse coords and compute initial transform
+  useEffect(() => {
+    if (!gpxText) {
+      setRouteCoords([]);
+      setRouteBBox(null);
+      return;
     }
-  };
+    const coords = parseGPX(gpxText);
+    setRouteCoords(coords);
+    // if image loaded, compute transform
+    const img = imgRef.current;
+    if (img && img.naturalWidth && coords.length > 0) {
+      computeRouteInitialTransform(coords, img.naturalWidth, img.naturalHeight);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gpxText]);
 
-  // 绘制画布内容
-  const drawCanvas = () => {
-    if (!uploadedImage || !canvasRef.current) return;
+  // also when image changes and we already have coords, fit route
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.naturalWidth && routeCoords.length > 0) {
+      computeRouteInitialTransform(routeCoords, img.naturalWidth, img.naturalHeight);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageUrl]);
 
+  function buildActivityText() {
+    if (!selectedActivity) return "";
+    const a = selectedActivity;
+    function fmtDist(m) {
+      if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
+      return `${Math.round(m)} m`;
+    }
+    function fmtDur(s) {
+      const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const ss = s % 60;
+      return `${h}h ${m}m ${ss}s`;
+    }
+    return `${a.activityName}\n${a.startTimeLocal}\n距: ${fmtDist(a.distance)}  爬升: ${a.elevationGain}m\n时长: ${fmtDur(a.duration)}  卡路里: ${a.calories}`;
+  }
+
+  function drawCanvas() {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
+    const img = imgRef.current;
+    if (!canvas || !img || !img.complete) return;
+    const ctx = canvas.getContext("2d");
 
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+    // keep canvas internal size at natural image pixels, scale via CSS
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
 
-      // 清空画布
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // clear and draw image
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      // 绘制背景图片
-      ctx.drawImage(img, 0, 0);
+    // draw route
+    if (routeCoords && routeCoords.length > 0 && routeBBox) {
+      const { minLat, maxLat, minLon, maxLon } = routeBBox;
+      const latRange = maxLat - minLat || 1;
+      const lonRange = maxLon - minLon || 1;
 
-      // 绘制运动数据文字
-      if (selectedActivity) {
-        ctx.font = `${textStyle.fontWeight} ${textStyle.fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
-        ctx.fillStyle = textStyle.color;
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.lineWidth = 2;
+      ctx.save();
+      ctx.globalAlpha = routeStyle.alpha;
+      ctx.lineWidth = Math.max(1, routeStyle.width);
+      ctx.strokeStyle = routeStyle.color;
+      ctx.beginPath();
+      routeCoords.forEach((c, i) => {
+        const baseX = ((c.lon - minLon) / lonRange) * canvas.width;
+        const baseY = ((maxLat - c.lat) / latRange) * canvas.height;
+        const x = baseX * routeStyle.scale + routeStyle.offsetX;
+        const y = baseY * routeStyle.scale + routeStyle.offsetY;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.restore();
+    }
 
-        const text = `距离
-${formatDistance(selectedActivity.distance)}
-爬升海拔
-${selectedActivity.elevationGain}m
-时间
-${formatDuration(selectedActivity.duration)}`;
+    // draw text
+    ctx.save();
+    ctx.font = `${textStyle.size}px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial`;
+    ctx.fillStyle = textStyle.color;
+    ctx.textBaseline = "top";
+    const lines = buildActivityText().split("\n").filter(Boolean);
+    let y = textPos.y;
+    lines.forEach((line) => {
+      ctx.fillText(line, textPos.x, y);
+      y += textStyle.size * 1.3;
+    });
+    ctx.restore();
+  }
 
-        const lines = text.split('\n');
-        lines.forEach((line, index) => {
-          const y = textStyle.position.y + (index * textStyle.fontSize * 1.2);
-          ctx.strokeText(line, textStyle.position.x, y);
-          ctx.fillText(line, textStyle.position.x, y);
-        });
-      }
+  useEffect(() => {
+    if (page === "editor") drawCanvas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageUrl, routeCoords, routeStyle, textStyle, textPos, routeBBox, selectedActivity]);
 
-      // 绘制GPX路线
-      if (gpxData && gpxData.length > 1) {
-        ctx.strokeStyle = routeStyle.color;
-        ctx.lineWidth = routeStyle.width;
-        ctx.globalAlpha = routeStyle.opacity;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+  function onImgLoad() {
+    // when image finishes loading, if we have coords fit them
+    const img = imgRef.current;
+    if (img && routeCoords && routeCoords.length > 0) {
+      computeRouteInitialTransform(routeCoords, img.naturalWidth, img.naturalHeight);
+    }
+    drawCanvas();
+  }
 
-        // 计算路线边界
-        const lats = gpxData.map(p => p.lat);
-        const lons = gpxData.map(p => p.lon);
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-        const minLon = Math.min(...lons);
-        const maxLon = Math.max(...lons);
-
-        // 映射到画布坐标
-        const mapPoint = (lat, lon) => {
-          const x = ((lon - minLon) / (maxLon - minLon)) * canvas.width * 0.3 + canvas.width * 0.1 + routeStyle.position.x;
-          const y = ((maxLat - lat) / (maxLat - minLat)) * canvas.height * 0.3 + canvas.height * 0.6 + routeStyle.position.y;
-          return { x, y };
-        };
-
-        ctx.beginPath();
-        gpxData.forEach((point, index) => {
-          const { x, y } = mapPoint(point.lat, point.lon);
-          if (index === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        });
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
-
-      setCanvasReady(true);
-    };
-
-    img.src = uploadedImage;
-  };
-
-  // 获取鼠标在画布上的坐标
-  const getCanvasCoordinates = (e) => {
+  // helper: convert client coords (mouse/touch) to canvas internal coords
+  function clientToCanvas(clientX, clientY) {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+    return { x, y };
+  }
 
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY
-    };
-  };
+  function onPointerDown(e) {
+    e.preventDefault();
+    const isTouch = e.type.startsWith('touch');
+    if (isTouch) {
+      const t = e.touches;
+      if (t.length === 2) {
+        // start pinch
+        const p1 = clientToCanvas(t[0].clientX, t[0].clientY);
+        const p2 = clientToCanvas(t[1].clientX, t[1].clientY);
+        const dx = p2.x - p1.x, dy = p2.y - p1.y;
+        const dist = Math.hypot(dx, dy);
+        const focal = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        gestureRef.current = {
+          type: 'pinch',
+          initialDist: dist,
+          initialScale: routeStyle.scale,
+          initialOffsetX: routeStyle.offsetX,
+          initialOffsetY: routeStyle.offsetY,
+          focal
+        };
+        return;
+      }
+      // single touch -> decide drag text or route
+      const p = clientToCanvas(t[0].clientX, t[0].clientY);
+      const textBox = { x: textPos.x, y: textPos.y, w: 420, h: textStyle.size * 4 };
+      if (p.x >= textBox.x && p.x <= textBox.x + textBox.w && p.y >= textBox.y && p.y <= textBox.y + textBox.h) {
+        gestureRef.current = { type: 'drag_text', last: p };
+      } else {
+        gestureRef.current = { type: 'drag_route', last: p };
+      }
+    } else {
+      // mouse event
+      const p = clientToCanvas(e.clientX, e.clientY);
+      const textBox = { x: textPos.x, y: textPos.y, w: 420, h: textStyle.size * 4 };
+      if (p.x >= textBox.x && p.x <= textBox.x + textBox.w && p.y >= textBox.y && p.y <= textBox.y + textBox.h) {
+        gestureRef.current = { type: 'drag_text', last: p };
+      } else {
+        gestureRef.current = { type: 'drag_route', last: p };
+      }
 
-  // 检查点击是否在文字区域内
-  const isPointInText = (x, y) => {
-    if (!selectedActivity) return false;
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', onPointerUp);
+    }
+  }
 
-    const canvas = canvasRef.current;
-    if (!canvas) return false;
+  function onPointerMove(e) {
+    const isTouch = e.type.startsWith('touch');
+    if (isTouch) {
+      const t = e.touches;
+      if (!gestureRef.current || !gestureRef.current.type) return;
+      if (gestureRef.current.type === 'pinch' && t.length === 2) {
+        const p1 = clientToCanvas(t[0].clientX, t[0].clientY);
+        const p2 = clientToCanvas(t[1].clientX, t[1].clientY);
+        const dx = p2.x - p1.x, dy = p2.y - p1.y;
+        const dist = Math.hypot(dx, dy);
+        const r = dist / gestureRef.current.initialDist;
+        const newScale = Math.max(0.05, Math.min(20, gestureRef.current.initialScale * r));
+        const focal = gestureRef.current.focal;
+        const ratio = newScale / gestureRef.current.initialScale;
+        const newOffsetX = gestureRef.current.initialOffsetX + focal.x * (1 - ratio);
+        const newOffsetY = gestureRef.current.initialOffsetY + focal.y * (1 - ratio);
+        setRouteStyle((s) => ({ ...s, scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY }));
+        return;
+      }
+      const p = clientToCanvas(t[0].clientX, t[0].clientY);
+      const g = gestureRef.current;
+      if (!g) return;
+      const dx = p.x - g.last.x;
+      const dy = p.y - g.last.y;
+      if (g.type === 'drag_text') {
+        setTextPos((tpos) => ({ x: Math.max(0, tpos.x + dx), y: Math.max(0, tpos.y + dy) }));
+      } else if (g.type === 'drag_route') {
+        setRouteStyle((rs) => ({ ...rs, offsetX: rs.offsetX + dx, offsetY: rs.offsetY + dy }));
+      }
+      gestureRef.current.last = p;
+    } else {
+      // mouse move (only if dragging)
+      if (!gestureRef.current || !gestureRef.current.type) return;
+      const p = clientToCanvas(e.clientX, e.clientY);
+      const g = gestureRef.current;
+      const dx = p.x - g.last.x;
+      const dy = p.y - g.last.y;
+      if (g.type === 'drag_text') {
+        setTextPos((tpos) => ({ x: Math.max(0, tpos.x + dx), y: Math.max(0, tpos.y + dy) }));
+      } else if (g.type === 'drag_route') {
+        setRouteStyle((rs) => ({ ...rs, offsetX: rs.offsetX + dx, offsetY: rs.offsetY + dy }));
+      }
+      gestureRef.current.last = p;
+    }
+  }
 
-    const textX = textStyle.position.x;
-    const textY = textStyle.position.y - textStyle.fontSize;
+  function onPointerUp(e) {
+    gestureRef.current = {};
+    window.removeEventListener('mousemove', onPointerMove);
+    window.removeEventListener('mouseup', onPointerUp);
+  }
 
-    // 估算文字宽度和高度
-    const ctx = canvas.getContext('2d');
-    ctx.font = `${textStyle.fontWeight} ${textStyle.fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+  function onWheel(e) {
+    // wheel to scale route (desktop)
+    e.preventDefault();
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
+    const my = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
+    const delta = e.deltaY < 0 ? 1.08 : 0.92;
+    setRouteStyle((s) => {
+      const newScale = Math.max(0.05, Math.min(20, s.scale * delta));
+      const r = newScale / s.scale;
+      const newOffsetX = s.offsetX + mx * (1 - r);
+      const newOffsetY = s.offsetY + my * (1 - r);
+      return { ...s, scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY };
+    });
+  }
 
-    const lines = [
-      selectedActivity.activityName,
-      `${formatDistance(selectedActivity.distance)} • ${formatDuration(selectedActivity.duration)}`,
-      `${selectedActivity.calories} cal • ${selectedActivity.elevationGain}m ↑`
-    ];
+  // export preserving original resolution
+  function exportImage(asJpeg = false) {
+    const img = imgRef.current;
+    if (!img) return;
+    const off = document.createElement("canvas");
+    off.width = img.naturalWidth;
+    off.height = img.naturalHeight;
+    const ctx = off.getContext("2d");
 
-    const textWidth = Math.max(...lines.map(line => ctx.measureText(line).width));
-    const textHeight = textStyle.fontSize * 3.6; // 3行文字的高度
+    ctx.drawImage(img, 0, 0, off.width, off.height);
 
-    return x >= textX && x <= textX + textWidth &&
-           y >= textY && y <= textY + textHeight;
-  };
-
-  // 检查点击是否在路线区域内
-  const isPointInRoute = (x, y) => {
-    if (!gpxData || gpxData.length < 2 || !canvasRef.current) return false;
-
-    const canvas = canvasRef.current;
-    const routeX = canvas.width * 0.1 + routeStyle.position.x;
-    const routeY = canvas.height * 0.6 + routeStyle.position.y;
-    const routeWidth = canvas.width * 0.3;
-    const routeHeight = canvas.height * 0.3;
-
-    // 扩大点击区域，方便用户点击
-    const padding = 20;
-    return x >= routeX - padding && x <= routeX + routeWidth + padding &&
-           y >= routeY - padding && y <= routeY + routeHeight + padding;
-  };
-
-  // 鼠标按下事件
-  const handleMouseDown = (e) => {
-    const coords = getCanvasCoordinates(e);
-
-    // 检查是否点击在文字上
-    if (isPointInText(coords.x, coords.y)) {
-      setIsDragging('text');
-      setDragStart({
-        x: coords.x - textStyle.position.x,
-        y: coords.y - textStyle.position.y
+    if (routeCoords && routeCoords.length > 0 && routeBBox) {
+      const { minLat, maxLat, minLon, maxLon } = routeBBox;
+      const latRange = maxLat - minLat || 1;
+      const lonRange = maxLon - minLon || 1;
+      ctx.save();
+      ctx.globalAlpha = routeStyle.alpha;
+      ctx.lineWidth = Math.max(1, routeStyle.width);
+      ctx.strokeStyle = routeStyle.color;
+      ctx.beginPath();
+      routeCoords.forEach((c, i) => {
+        const baseX = ((c.lon - minLon) / lonRange) * off.width;
+        const baseY = ((maxLat - c.lat) / latRange) * off.height;
+        const x = baseX * routeStyle.scale + routeStyle.offsetX;
+        const y = baseY * routeStyle.scale + routeStyle.offsetY;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       });
-      return;
+      ctx.stroke();
+      ctx.restore();
     }
 
-    // 检查是否点击在路线上
-    if (isPointInRoute(coords.x, coords.y)) {
-      setIsDragging('route');
-      setDragStart({
-        x: coords.x - routeStyle.position.x,
-        y: coords.y - routeStyle.position.y
-      });
-      return;
-    }
-  };
+    // draw text
+    ctx.save();
+    ctx.font = `${textStyle.size}px system-ui, -apple-system, BlinkMacSystemFont`;
+    ctx.fillStyle = textStyle.color;
+    ctx.textBaseline = "top";
+    const lines = buildActivityText().split("\n").filter(Boolean);
+    let y = (textPos.y / canvasRef.current.height) * off.height;
+    const x = (textPos.x / canvasRef.current.width) * off.width;
+    lines.forEach((line) => {
+      ctx.fillText(line, x, y);
+      y += textStyle.size * 1.3;
+    });
+    ctx.restore();
 
-  // 鼠标移动事件
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
+    const mime = asJpeg ? "image/jpeg" : "image/png";
+    off.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `garmin-overlay.${asJpeg ? "jpg" : "png"}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, mime, 0.95);
+  }
 
-    const coords = getCanvasCoordinates(e);
+  function resetTransforms() {
+    setRouteStyle((s) => ({ ...s, scale: 1, offsetX: 0, offsetY: 0 }));
+    setTextPos({ x: 30, y: 60 });
+  }
 
-    if (isDragging === 'text') {
-      setTextStyle(prev => ({
-        ...prev,
-        position: {
-          x: Math.max(0, Math.min(coords.x - dragStart.x, canvasRef.current?.width - 300 || 0)),
-          y: Math.max(textStyle.fontSize, Math.min(coords.y - dragStart.y, canvasRef.current?.height - 20 || 0))
-        }
-      }));
-    } else if (isDragging === 'route') {
-      setRouteStyle(prev => ({
-        ...prev,
-        position: {
-          x: Math.max(-100, Math.min(coords.x - dragStart.x, 100)),
-          y: Math.max(-100, Math.min(coords.y - dragStart.y, 100))
-        }
-      }));
-    }
-  };
-
-  // 鼠标释放事件
-  const handleMouseUp = () => {
-    setIsDragging(null);
-    setDragStart({ x: 0, y: 0 });
-  };
-
-  // 全局鼠标事件监听
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleGlobalMouseMove = (e) => {
-      handleMouseMove(e);
-    };
-
-    const handleGlobalMouseUp = (e) => {
-      handleMouseUp();
-    };
-
-    // 添加全局事件监听
-    document.addEventListener('mousemove', handleGlobalMouseMove);
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [isDragging, dragStart]);
-
-  // 触摸事件处理
-  const handleTouchStart = (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY });
-  };
-
-  const handleTouchMove = (e) => {
-    e.preventDefault();
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
-  };
-
-  const handleTouchEnd = (e) => {
-    e.preventDefault();
-    handleMouseUp();
-  };
-
-  // 监听样式变化重绘画布
-  useEffect(() => {
-    if (currentPage === 'editor') {
-      drawCanvas();
-    }
-  }, [currentPage, uploadedImage, selectedActivity, gpxData, textStyle, routeStyle]);
-
-  // 导出图片
-  const exportImage = () => {
-    const canvas = canvasRef.current;
-    const link = document.createElement('a');
-    link.download = `garmin-overlay-${Date.now()}.png`;
-    link.href = canvas.toDataURL();
-    link.click();
-  };
-
-  // 渲染上传页
-  const renderUploadPage = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 flex items-center justify-center p-4">
-      <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 shadow-2xl max-w-md w-full text-center">
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-white mb-2">G A R M I N</h1>
-        </div>
-
-        <div
-          className="border-2 border-dashed border-white/30 rounded-2xl p-12 mb-6 transition-all duration-300 hover:border-white/50 hover:bg-white/5 cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const file = e.dataTransfer.files[0];
-            handleImageUpload(file);
-          }}
-        >
-          <Upload className="w-16 h-16 text-white/70 mx-auto mb-4" />
-          <p className="text-white/80 text-lg mb-2">上传图片</p>
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => handleImageUpload(e.target.files[0])}
-        />
-
-      </div>
-    </div>
-  );
-
-  // 渲染活动选择页
-  const renderActivitiesPage = () => (
-    <div
-      className="min-h-screen bg-cover bg-center relative"
-      style={{ backgroundImage: `url(${uploadedImage})` }}
-    >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-
-      <div className="relative z-10 p-4">
-        <div className="flex items-center justify-between mb-6 pt-4">
-          <button
-            onClick={() => setCurrentPage('upload')}
-            className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm"
-          >
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
-
-          <h2 className="text-xl font-semibold text-white">选择活动</h2>
-          <div className="w-10"></div>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-700 text-white flex items-center justify-center p-4">
+      <div className="w-full max-w-xl mx-auto">
+        {page === "upload" && (
+          <div className="backdrop-blur-xl bg-white/10 rounded-2xl p-8 text-center shadow-md">
+            <h1 className="text-3xl font-semibold mb-4">Garmin Overlay</h1>
+            <p className="mb-4 text-sm opacity-90">上传一张照片作为背景，然后选择活动生成叠加图。</p>
+            <label className="inline-flex flex-col items-center justify-center cursor-pointer">
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => onImageSelected(e.target.files?.[0])} />
+              <div className="w-36 h-36 rounded-full bg-white/20 flex items-center justify-center text-xl font-medium shadow-lg">上传照片</div>
+            </label>
           </div>
-        ) : (
-          <div className="space-y-3 max-w-md mx-auto">
-            {activities.map((activity) => (
-              <div
-                key={activity.activityId}
-                onClick={() => selectActivity(activity)}
-                className="backdrop-blur-xl bg-white/10 rounded-2xl p-4 cursor-pointer transition-all duration-200 hover:bg-white/20 hover:scale-105"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-2xl">{getActivityIcon(activity.activityType)}</span>
-                    <div>
-                      <h3 className="text-white font-medium">{activity.activityName}</h3>
-                      <p className="text-white/70 text-sm flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {formatDate(activity.startTimeLocal)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+        )}
 
-                <div className="grid grid-cols-2 gap-4 text-white/80 text-sm">
-                  <div className="flex items-center space-x-1">
-                    <MapPin className="w-4 h-4" />
-                    <span>{formatDistance(activity.distance)}</span>
+        {page === "activities" && (
+          <div className="backdrop-blur-xl bg-white/8 rounded-2xl p-4 shadow-md">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-medium">选择活动</h2>
+              <button className="text-sm opacity-90" onClick={() => setPage("upload")}>取消</button>
+            </div>
+            <div className="space-y-3 max-h-80 overflow-auto">
+              {activities.length === 0 && <div className="p-4 text-sm opacity-80">正在加载或暂无活动</div>}
+              {activities.map((a) => (
+                <div key={a.activityId} className="p-3 rounded-xl bg-white/6 flex items-center justify-between" onClick={() => onSelectActivity(a)}>
+                  <div>
+                    <div className="font-semibold">{a.activityName}</div>
+                    <div className="text-xs opacity-80">{a.startTimeLocal}</div>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-4 h-4" />
-                    <span>{formatDuration(activity.duration)}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Flame className="w-4 h-4" />
-                    <span>{activity.calories} cal</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>{activity.elevationGain}m</span>
+                  <div className="text-right text-xs opacity-80">
+                    <div>{(a.distance/1000).toFixed(2)} km</div>
+                    <div>{formatDurationShort(a.duration)}</div>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {page === "editor" && (
+          <div className="bg-white/5 rounded-2xl p-2 shadow-lg">
+            <div className="flex items-center justify-between p-2">
+              <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setPage("activities")}>返回</button>
+              <div className="flex gap-2">
+                <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => { setOpenPanel('export'); }}>导出</button>
+                <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => resetTransforms()}>重置</button>
               </div>
-            ))}
+            </div>
+
+            <div className="relative border rounded-md overflow-hidden bg-slate-900">
+              {imageUrl && (
+                <canvas
+                  ref={canvasRef}
+                  className="w-full touch-none"
+                  onMouseDown={onPointerDown}
+                  onWheel={onWheel}
+                  onTouchStart={onPointerDown}
+                  onTouchMove={onPointerMove}
+                  onTouchEnd={onPointerUp}
+                  style={{ width: "100%", height: "auto", display: "block" }}
+                />
+              )}
+              {/* hidden image used for natural size and drawing */}
+              <img ref={imgRef} src={imageUrl} alt="uploaded" onLoad={onImgLoad} style={{ display: "none" }} />
+            </div>
+
+            {/* Bottom fixed toolbar - 4 buttons, each opens a sliding panel */}
+            <div className="fixed bottom-4 left-0 right-0 flex justify-center pointer-events-none">
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
+                <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}>文字</button>
+                <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}>路线</button>
+                <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => setOpenPanel(openPanel === 'export' ? null : 'export')}>导出</button>
+                <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => { resetTransforms(); setOpenPanel(null); }}>重置</button>
+              </div>
+            </div>
+
+            {/* Sliding panels */}
+            <div className={`fixed left-4 right-4 bottom-20 rounded-xl bg-white/6 backdrop-blur-xl p-4 transition-transform duration-300 ${openPanel ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0 pointer-events-none'}`}>
+              {openPanel === 'text' && (
+                <div>
+                  <div className="text-sm mb-2">文字大小</div>
+                  <input type="range" min={12} max={72} value={textStyle.size} onChange={(e) => setTextStyle((s)=>({...s, size: Number(e.target.value)}))} className="w-full" />
+                  <div className="flex items-center gap-2 mt-3">
+                    <div className="text-sm">颜色</div>
+                    <input type="color" value={textStyle.color} onChange={(e)=>setTextStyle((s)=>({...s, color:e.target.value}))} />
+                  </div>
+                </div>
+              )}
+
+              {openPanel === 'route' && (
+                <div>
+                  <div className="text-sm mb-2">路线宽度</div>
+                  <input type="range" min={1} max={20} value={routeStyle.width} onChange={(e)=>setRouteStyle((s)=>({...s, width: Number(e.target.value)}))} className="w-full" />
+                  <div className="text-sm mt-3 mb-2">路线缩放（捏合 / 拖动也可）</div>
+                  <div className="flex gap-2 items-center">
+                    <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setRouteStyle((s)=>({...s, scale: Math.min(20, s.scale*1.12)}))}>放大</button>
+                    <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setRouteStyle((s)=>({...s, scale: Math.max(0.05, s.scale*0.88)}))}>缩小</button>
+                    <div className="ml-2">当前: {routeStyle.scale.toFixed(2)}x</div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    <div className="text-sm">颜色</div>
+                    <input type="color" value={routeStyle.color} onChange={(e)=>setRouteStyle((s)=>({...s, color:e.target.value}))} />
+                    <div className="ml-4 text-sm">透明度</div>
+                    <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} />
+                  </div>
+                </div>
+              )}
+
+              {openPanel === 'export' && (
+                <div className="flex gap-3">
+                  <button className="px-4 py-2 bg-white/6 rounded-lg" onClick={() => exportImage(false)}>导出 PNG</button>
+                  <button className="px-4 py-2 bg-white/6 rounded-lg" onClick={() => exportImage(true)}>导出 JPG</button>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
       </div>
     </div>
   );
+}
 
-  // 渲染编辑器页面
-  const renderEditorPage = () => (
-    <div className="min-h-screen bg-gray-50">
-      {/* 顶部工具栏 */}
-      <div className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200/50 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <button
-          onClick={() => setCurrentPage('activities')}
-          className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-all duration-200"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-700" />
-        </button>
-
-        <h2 className="text-lg font-semibold text-gray-900">编辑图片</h2>
-
-        <button
-          onClick={exportImage}
-          disabled={!canvasReady}
-          className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl flex items-center space-x-2 transition-all duration-200 shadow-sm"
-        >
-          <Download className="w-4 h-4" />
-          <span>导出</span>
-        </button>
-      </div>
-
-      {/* 主编辑区域 */}
-      <div className="flex-1 p-4 pb-20">
-        <div className="max-w-4xl mx-auto">
-          {/* 画布区域 */}
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="relative">
-              <canvas
-                ref={canvasRef}
-                className={`w-full h-auto max-h-[70vh] object-contain select-none ${
-                  isDragging ? 'cursor-grabbing' : 'cursor-grab'
-                }`}
-                onMouseDown={handleMouseDown}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                style={{
-                  touchAction: 'none',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  MozUserSelect: 'none',
-                  msUserSelect: 'none'
-                }}
-              />
-              {!canvasReady && uploadedImage && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 底部浮动工具栏 */}
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
-        <div className="flex items-center space-x-3">
-          {/* 拖拽提示 */}
-          {isDragging && (
-            <div className="bg-black/80 text-white text-sm px-3 py-2 rounded-xl backdrop-blur-sm mr-4 animate-pulse">
-              <div className="flex items-center space-x-2">
-                <Move className="w-4 h-4" />
-                <span>拖拽{isDragging === 'text' ? '文字' : '路线'}中...</span>
-              </div>
-            </div>
-          )}
-
-          {/* 文字工具按钮 */}
-          <button
-            onClick={() => {
-              setShowTextPanel(!showTextPanel);
-              setShowRoutePanel(false);
-            }}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg ${
-              showTextPanel
-                ? 'bg-blue-500 text-white shadow-blue-500/25'
-                : 'bg-white/90 backdrop-blur-md text-gray-700 hover:bg-white shadow-black/10'
-            }`}
-          >
-            <Type className="w-6 h-6" />
-          </button>
-
-          {/* 路线工具按钮 */}
-          <button
-            onClick={() => {
-              setShowRoutePanel(!showRoutePanel);
-              setShowTextPanel(false);
-            }}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg ${
-              showRoutePanel
-                ? 'bg-red-500 text-white shadow-red-500/25'
-                : 'bg-white/90 backdrop-blur-md text-gray-700 hover:bg-white shadow-black/10'
-            }`}
-          >
-            <Route className="w-6 h-6" />
-          </button>
-
-          {/* 移动工具按钮 */}
-          <button
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg ${
-              isDragging
-                ? 'bg-green-500 text-white shadow-green-500/25'
-                : 'bg-white/90 backdrop-blur-md text-gray-700 hover:bg-white shadow-black/10'
-            }`}
-            onClick={() => {
-              setShowTextPanel(false);
-              setShowRoutePanel(false);
-            }}
-          >
-            <Move className="w-6 h-6" />
-          </button>
-        </div>
-      </div>
-
-      {/* 文字样式面板 */}
-      {showTextPanel && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 w-80 max-w-[calc(100vw-2rem)] z-30">
-          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 animate-in slide-in-from-bottom-4 duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Type className="w-5 h-5 mr-2 text-blue-500" />
-                文字样式
-              </h3>
-              <button
-                onClick={() => setShowTextPanel(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-              >
-                <span className="text-gray-600 text-sm">✕</span>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700">字体大小</label>
-                  <span className="text-sm text-gray-500">{textStyle.fontSize}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="16"
-                  max="48"
-                  value={textStyle.fontSize}
-                  onChange={(e) => setTextStyle(prev => ({ ...prev, fontSize: parseInt(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">颜色</label>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="color"
-                    value={textStyle.color}
-                    onChange={(e) => setTextStyle(prev => ({ ...prev, color: e.target.value }))}
-                    className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer"
-                  />
-                  <div className="flex space-x-2">
-                    {['#FFFFFF', '#000000', '#FF3B30', '#007AFF', '#34C759', '#FF9500'].map(color => (
-                      <button
-                        key={color}
-                        onClick={() => setTextStyle(prev => ({ ...prev, color }))}
-                        className="w-8 h-8 rounded-lg border-2 border-gray-200 transition-transform hover:scale-110"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 rounded-xl p-3">
-                <div className="flex items-start space-x-2">
-                  <Move className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">拖拽调整位置</p>
-                    <p className="text-xs opacity-90">在画布上直接点击并拖拽文字来调整位置</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 路线样式面板 */}
-      {showRoutePanel && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 w-80 max-w-[calc(100vw-2rem)] z-30">
-          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 animate-in slide-in-from-bottom-4 duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Route className="w-5 h-5 mr-2 text-red-500" />
-                路线样式
-              </h3>
-              <button
-                onClick={() => setShowRoutePanel(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-              >
-                <span className="text-gray-600 text-sm">✕</span>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700">线宽</label>
-                  <span className="text-sm text-gray-500">{routeStyle.width}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="8"
-                  value={routeStyle.width}
-                  onChange={(e) => setRouteStyle(prev => ({ ...prev, width: parseInt(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">颜色</label>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="color"
-                    value={routeStyle.color}
-                    onChange={(e) => setRouteStyle(prev => ({ ...prev, color: e.target.value }))}
-                    className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer"
-                  />
-                  <div className="flex space-x-2">
-                    {['#FF3B30', '#007AFF', '#34C759', '#FF9500', '#AF52DE', '#5AC8FA'].map(color => (
-                      <button
-                        key={color}
-                        onClick={() => setRouteStyle(prev => ({ ...prev, color }))}
-                        className="w-8 h-8 rounded-lg border-2 border-gray-200 transition-transform hover:scale-110"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700">透明度</label>
-                  <span className="text-sm text-gray-500">{Math.round(routeStyle.opacity * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1"
-                  step="0.1"
-                  value={routeStyle.opacity}
-                  onChange={(e) => setRouteStyle(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                />
-              </div>
-
-              <div className="bg-red-50 rounded-xl p-3">
-                <div className="flex items-start space-x-2">
-                  <Move className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-red-800">
-                    <p className="font-medium mb-1">拖拽调整位置</p>
-                    <p className="text-xs opacity-90">在画布上直接点击并拖拽路线来调整位置</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 背景遮罩 */}
-      {(showTextPanel || showRoutePanel) && (
-        <div
-          className="fixed inset-0 bg-black/20 z-20"
-          onClick={() => {
-            setShowTextPanel(false);
-            setShowRoutePanel(false);
-          }}
-        />
-      )}
-
-      {/* 自定义滑块样式 */}
-      <style jsx>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #007AFF;
-          cursor: pointer;
-          box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
-        }
-        .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #007AFF;
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
-        }
-        .animate-in {
-          animation: slideInFromBottom 0.3s ease-out;
-        }
-        @keyframes slideInFromBottom {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
-    </div>
-  );
-
-  // 主渲染
-  return (
-    <div className="font-sans">
-      {currentPage === 'upload' && renderUploadPage()}
-      {currentPage === 'activities' && renderActivitiesPage()}
-      {currentPage === 'editor' && renderEditorPage()}
-    </div>
-  );
-};
-
-export default GarminOverlayApp;
+function formatDurationShort(s) {
+  const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
