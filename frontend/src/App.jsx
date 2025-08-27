@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { Camera, ImagePlus } from 'lucide-react'
 
 
-const BACKEND_BASE = "http://localhost:9245"; // replace with your server
+const BACKEND_BASE = "http://172.20.10.2:9245"; // replace with your server
 
 export default function GarminOverlayApp() {
   const [page, setPage] = useState("upload"); // upload | activities | editor
@@ -17,7 +17,7 @@ export default function GarminOverlayApp() {
 
   // overlay style state
   const [textStyle, setTextStyle] = useState({ size: 48, color: "#ffffff" });
-  const [routeStyle, setRouteStyle] = useState({ color: "#ff5100ff", width: 5, alpha: 0.9, scale: 1, offsetX: 0, offsetY: 0 });
+  const [routeStyle, setRouteStyle] = useState({ color: "#ff5100ff", width: 20, alpha: 1, scale: 1, offsetX: 0, offsetY: 0 });
 
   const [textPos, setTextPos] = useState({ x: 120, y: 60 });
 
@@ -388,15 +388,27 @@ export default function GarminOverlayApp() {
 
     // draw text
     ctx.save();
-    ctx.font = `${textStyle.size}px system-ui, -apple-system, BlinkMacSystemFont`;
     ctx.fillStyle = textStyle.color;
     ctx.textBaseline = "top";
+    ctx.textAlign = "center";
     const lines = buildActivityText().split("\n").filter(Boolean);
-    let y = (textPos.y / canvasRef.current.height) * off.height;
-    const x = (textPos.x / canvasRef.current.width) * off.width;
-    lines.forEach((line) => {
-      ctx.fillText(line, x, y);
-      y += textStyle.size * 1.3;
+    let y = textPos.y;
+    lines.forEach((line, index) => {
+      const isSmallText = index % 2 === 0;
+      const fontSize = isSmallText ? textStyle.size * 0.4 : textStyle.size;
+      ctx.font = `${fontSize}px 'DIN Condensed', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      const centerX = textPos.x; // 如果textPos.x已经是中心点，直接使用
+      if (!isSmallText) {
+        ctx.save();
+        ctx.translate(centerX, y);
+        ctx.scale(1.5, 1); 
+        ctx.translate(-centerX, -y);
+      }
+      ctx.fillText(line, centerX, y);
+      if (!isSmallText) {
+        ctx.restore(); // 恢复变换
+      }
+      y += fontSize * 1.3;
     });
     ctx.restore();
 
@@ -504,9 +516,9 @@ export default function GarminOverlayApp() {
             {/* Bottom fixed toolbar - 4 buttons, each opens a sliding panel */}
             <div className="fixed bottom-4 left-0 right-0 flex justify-center pointer-events-none">
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-white font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}>T</button>
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-white font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}>RC</button>
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-white font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route_2' ? null : 'route_2')}>RS</button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}>T</button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}>R</button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route_2' ? null : 'route_2')}>S</button>
               </div>
             </div>
 
@@ -561,8 +573,8 @@ export default function GarminOverlayApp() {
                     <div className="w-14 text-sm text-gray-200">宽度</div>
                     <input
                       type="range"
-                      min={1}
-                      max={20}
+                      min={10}
+                      max={40}
                       value={routeStyle.width}
                       onChange={(e) =>
                         setRouteStyle((s) => ({ ...s, width: Number(e.target.value) }))
