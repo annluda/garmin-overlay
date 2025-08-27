@@ -463,66 +463,16 @@ export default function GarminOverlayApp() {
       fileInputRef.current?.click();
     };
 
-    // 拖拽处理函数
-    const handleDragEnter = useCallback((e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragOver(true);
-    }, []);
-
-    const handleDragLeave = useCallback((e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragOver(false);
-    }, []);
-
-    const handleDragOver = useCallback((e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    }, []);
-
-    const handleDrop = useCallback((e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragOver(false);
-
-      const files = Array.from(e.dataTransfer.files);
-      const imageFile = files.find(file => file.type.startsWith('image/'));
-      
-      if (imageFile && uploadState === 'idle') {
-        handleFileSelect(imageFile);
-      }
-    }, [handleFileSelect, uploadState]);
-
-    const getUploadText = () => {
-      switch (uploadState) {
-        case 'loading':
-          return 'Uploading...';
-        case 'success':
-          return 'Upload Complete!';
-        default:
-          return 'Choose Image';
-      }
-    };
-
-    const getHintText = () => {
-      if (uploadState !== 'idle') return '';
-      return 'Or drag and drop your photo here';
-    };
 
     return (
       <div className={`upload-container ${uploadState}`}>
         <div className="upload-content">
-          <h1 className="brand-title">G A R M I N</h1>
-          <p className="upload-subtitle">Upload your adventure</p>
+          <h1 className="brand-title">GARMIN</h1>
+          <p className="upload-subtitle">Beat Yesterday</p>
           
           <div
             className={`upload-area ${isDragOver ? 'drag-over' : ''}`}
             onClick={handleClick}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
             role="button"
             tabIndex={0}
             aria-label="Upload image"
@@ -546,10 +496,6 @@ export default function GarminOverlayApp() {
               <Camera size={60} className="camera-icon" />
             </div>
             
-            <div className="upload-text">{getUploadText()}</div>
-            {getHintText() && (
-              <div className="upload-hint">{getHintText()}</div>
-            )}
           </div>
         </div>
       </div>
