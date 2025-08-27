@@ -1,4 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
+import { Calendar, MapPin, Clock, Flame } from 'lucide-react';
+
 
 const BACKEND_BASE = "http://localhost:9245"; // replace with your server
 
@@ -421,22 +423,39 @@ export default function GarminOverlayApp() {
         )}
 
         {page === "activities" && (
-          <div className="backdrop-blur-xl bg-white/8 rounded-2xl p-4 shadow-md">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-medium">选择活动</h2>
-              <button className="text-sm opacity-90" onClick={() => setPage("upload")}>取消</button>
+          <div className="ios-activities-modal">
+            <div className="ios-modal-header">
+              <h2 className="ios-modal-title">选择活动</h2>
+              <button className="ios-cancel-button" onClick={() => setPage("upload")}>
+                取消
+              </button>
             </div>
-            <div className="space-y-3 max-h-80 overflow-auto">
-              {activities.length === 0 && <div className="p-4 text-sm opacity-80">正在加载或暂无活动</div>}
+            <div className="ios-activities-list">
+              {activities.length === 0 && (
+                <div className="ios-empty-state">
+                  <div className="ios-empty-icon">🏃‍♂️</div>
+                  <div className="ios-empty-text">正在加载或暂无活动</div>
+                </div>
+              )}
               {activities.map((a) => (
-                <div key={a.activityId} className="p-3 rounded-xl bg-white/6 flex items-center justify-between" onClick={() => onSelectActivity(a)}>
-                  <div>
-                    <div className="font-semibold">{a.activityName}</div>
-                    <div className="text-xs opacity-80">{a.startTimeLocal}</div>
-                  </div>
-                  <div className="text-right text-xs opacity-80">
-                    <div>{(a.distance/1000).toFixed(2)} km</div>
-                    <div>{formatDurationShort(a.duration)}</div>
+                <div 
+                  key={a.activityId} 
+                  className="ios-activity-item" 
+                  onClick={() => onSelectActivity(a)}
+                >
+                  <div className="ios-activity-content">
+                    <div className="ios-activity-main">
+                      <div className="ios-activity-name">{getActivityIcon(a.activityType)} {a.activityName}</div>
+                      <div className="ios-activity-time">{a.startTimeLocal}</div>
+                    </div>
+                    <div className="ios-activity-stats">
+                      <div className="ios-activity-distance">
+                        🏁 {(a.distance/1000).toFixed(2)} km
+                      </div>
+                      <div className="flex ios-activity-duration">
+                        ⏱️ {formatDurationShort(a.duration)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -576,3 +595,16 @@ function formatDurationShort(s) {
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
 }
+
+function getActivityIcon(type) {
+  switch (type) {
+    case 'cycling':
+      return '🚴';
+    case 'running':
+      return '🏃';
+    case 'hiking':
+      return '🥾';
+    default:
+      return '🏃';
+  }
+};
