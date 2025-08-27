@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Calendar, MapPin, Clock, Flame } from 'lucide-react';
+import { Camera, ImagePlus } from 'lucide-react'
 
 
 const BACKEND_BASE = "http://localhost:9245"; // replace with your server
@@ -16,12 +16,12 @@ export default function GarminOverlayApp() {
   const [routeBBox, setRouteBBox] = useState(null); // {minLat,maxLat,minLon,maxLon}
 
   // overlay style state
-  const [textStyle, setTextStyle] = useState({ size: 20, color: "#ffffff" });
-  const [routeStyle, setRouteStyle] = useState({ color: "#00FFAA", width: 3, alpha: 0.9, scale: 1, offsetX: 0, offsetY: 0 });
+  const [textStyle, setTextStyle] = useState({ size: 36, color: "#ffffff" });
+  const [routeStyle, setRouteStyle] = useState({ color: "#ff5100ff", width: 5, alpha: 0.9, scale: 1, offsetX: 0, offsetY: 0 });
 
-  const [textPos, setTextPos] = useState({ x: 30, y: 60 });
+  const [textPos, setTextPos] = useState({ x: 120, y: 60 });
 
-  const [openPanel, setOpenPanel] = useState(null); // 'text' | 'route' | 'export' | null
+  const [openPanel, setOpenPanel] = useState(null); 
 
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
@@ -423,10 +423,12 @@ export default function GarminOverlayApp() {
       <div className="w-full max-w-xl mx-auto">
         {page === "upload" && (
           <div className="backdrop-blur-xl bg-white/10 rounded-2xl p-8 text-center shadow-md">
-            <h1 className="text-3xl font-semibold mb-4">Garmin Overlay</h1>
+            <h1 className="text-3xl font-semibold mb-4">G A R M I N</h1>
             <label className="inline-flex flex-col items-center justify-center cursor-pointer">
               <input type="file" accept="image/*" className="hidden" onChange={(e) => onImageSelected(e.target.files?.[0])} />
-              <div className="w-36 h-36 rounded-full bg-white/20 flex items-center justify-center text-xl font-medium shadow-lg">上传照片</div>
+              <div className="w-36 h-36 rounded-full bg-white/20 flex items-center justify-center text-xl font-medium shadow-lg">
+                <Camera size={48} />
+              </div>
             </label>
           </div>
         )}
