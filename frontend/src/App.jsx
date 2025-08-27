@@ -147,15 +147,7 @@ export default function GarminOverlayApp() {
   function buildActivityText() {
     if (!selectedActivity) return "";
     const a = selectedActivity;
-    function fmtDist(m) {
-      if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
-      return `${Math.round(m)} m`;
-    }
-    function fmtDur(s) {
-      const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const ss = s % 60;
-      return `${h}h ${m}m ${ss}s`;
-    }
-    return `${a.activityName}\n${a.startTimeLocal}\n距: ${fmtDist(a.distance)}  爬升: ${a.elevationGain}m\n时长: ${fmtDur(a.duration)}  卡路里: ${a.calories}`;
+    return `距离\n${(a.distance/1000).toFixed(2)} km\n爬升海拔\n${a.elevationGain} m\n时间\n${formatDurationShort(a.duration)}`;
   }
 
   function drawCanvas() {
@@ -197,14 +189,31 @@ export default function GarminOverlayApp() {
 
     // draw text
     ctx.save();
-    ctx.font = `${textStyle.size}px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial`;
     ctx.fillStyle = textStyle.color;
     ctx.textBaseline = "top";
+    ctx.textAlign = "center";
     const lines = buildActivityText().split("\n").filter(Boolean);
     let y = textPos.y;
-    lines.forEach((line) => {
-      ctx.fillText(line, textPos.x, y);
-      y += textStyle.size * 1.3;
+    lines.forEach((line, index) => {
+      const isSmallText = index % 2 === 0;
+      const fontSize = isSmallText ? textStyle.size * 0.4 : textStyle.size;
+      
+      ctx.font = `${fontSize}px 'DIN Condensed', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      
+      const centerX = textPos.x; // 如果textPos.x已经是中心点，直接使用
+      
+      if (!isSmallText) {
+        ctx.save();
+        ctx.translate(centerX, y);
+        ctx.scale(1.5, 1); 
+        ctx.translate(-centerX, -y);
+      }
+      ctx.fillText(line, centerX, y);
+      if (!isSmallText) {
+        ctx.restore(); // 恢复变换
+      }
+
+      y += fontSize * 1.3;
     });
     ctx.restore();
   }
@@ -450,7 +459,7 @@ export default function GarminOverlayApp() {
                     </div>
                     <div className="ios-activity-stats">
                       <div className="ios-activity-distance">
-                        🏁 {(a.distance/1000).toFixed(2)} km
+                        📍 {(a.distance/1000).toFixed(2)} km
                       </div>
                       <div className="flex ios-activity-duration">
                         ⏱️ {formatDurationShort(a.duration)}
