@@ -16,7 +16,7 @@ export default function GarminOverlayApp() {
   const [routeBBox, setRouteBBox] = useState(null); // {minLat,maxLat,minLon,maxLon}
 
   // overlay style state
-  const [textStyle, setTextStyle] = useState({ size: 36, color: "#ffffff" });
+  const [textStyle, setTextStyle] = useState({ size: 48, color: "#ffffff" });
   const [routeStyle, setRouteStyle] = useState({ color: "#ff5100ff", width: 5, alpha: 0.9, scale: 1, offsetX: 0, offsetY: 0 });
 
   const [textPos, setTextPos] = useState({ x: 120, y: 60 });
@@ -415,7 +415,7 @@ export default function GarminOverlayApp() {
 
   function resetTransforms() {
     setRouteStyle((s) => ({ ...s, scale: 1, offsetX: 0, offsetY: 0 }));
-    setTextPos({ x: 30, y: 60 });
+    setTextPos({ x: 120, y: 60 });
   }
 
   return (
@@ -530,8 +530,8 @@ export default function GarminOverlayApp() {
                   <div className="flex flex-col items-center flex-1 w-full">
                     <input
                       type="range"
-                      min={36}
-                      max={120}
+                      min={48}
+                      max={200}
                       value={textStyle.size}
                       onChange={(e) =>
                         setTextStyle((s) => ({ ...s, size: Number(e.target.value) }))
@@ -546,8 +546,10 @@ export default function GarminOverlayApp() {
                 <div>
                   <div className="flex items-center gap-4 mt-3">
                     <input type="color" value={routeStyle.color} onChange={(e)=>setRouteStyle((s)=>({...s, color:e.target.value}))} />
-                    <div className="ml-4 text-sm">透明度</div>
-                    <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} className="w-full accent-blue-500 ios-slider" />
+                    <div className="text-sm">透明度</div>
+                    <div className="flex flex-col items-center flex-1 w-full">
+                      <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} className="w-full accent-blue-500 ios-slider" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -577,8 +579,8 @@ export default function GarminOverlayApp() {
                     <div className="w-14 text-sm text-gray-200">缩放</div>
                     <input
                       type="range"
-                      min={0.5}
-                      max={10}
+                      min={0.1}
+                      max={2}
                       step={0.05}
                       value={routeStyle.scale}
                       onChange={(e) =>
