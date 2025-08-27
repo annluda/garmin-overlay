@@ -59,7 +59,7 @@ export default function GarminOverlayApp() {
     const url = URL.createObjectURL(file);
     setImageUrl(url);
     // small delay so UI shows upload
-    setTimeout(() => setPage("activities"), 300);
+    setTimeout(() => setPage("activities"), 0);
   }
 
   async function onSelectActivity(act) {
@@ -448,8 +448,8 @@ export default function GarminOverlayApp() {
         // 重置状态
         setTimeout(() => {
           setUploadState('idle');
-        }, 2000);
-      }, 1500);
+        }, 1000);
+      }, 500);
     }, [onImageSelected]);
 
     const handleInputChange = (e) => {
