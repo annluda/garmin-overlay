@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 
-const BACKEND_BASE = "http://172.20.10.2:9245"; // replace with your server
+const BACKEND_BASE = "http://localhost:9245"; // replace with your server
 
 export default function GarminOverlayApp() {
   const [page, setPage] = useState("upload"); // upload | activities | editor
@@ -449,7 +449,7 @@ export default function GarminOverlayApp() {
             <div className="flex items-center justify-between p-2">
               <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setPage("activities")}>返回</button>
               <div className="flex gap-2">
-                <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => { setOpenPanel('export'); }}>导出</button>
+                <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => exportImage(true)}>导出</button>
                 <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => resetTransforms()}>重置</button>
               </div>
             </div>
@@ -474,8 +474,9 @@ export default function GarminOverlayApp() {
             {/* Bottom fixed toolbar - 4 buttons, each opens a sliding panel */}
             <div className="fixed bottom-4 left-0 right-0 flex justify-center pointer-events-none">
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
-                <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}>文字</button>
-                <button className="px-3 py-2 rounded-lg bg-white/6" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}>路线</button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-white font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}>T</button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-white font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}>RC</button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-white font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route_2' ? null : 'route_2')}>RS</button>
               </div>
             </div>
 
@@ -494,8 +495,9 @@ export default function GarminOverlayApp() {
                     />
                   </div>
 
+                  <div className="ml-4 text-sm">大小</div>
                   {/* 大小滑块 */}
-                  <div className="flex flex-col items-center flex-1">
+                  <div className="flex flex-col items-center flex-1 w-full">
                     <input
                       type="range"
                       min={36}
@@ -504,7 +506,7 @@ export default function GarminOverlayApp() {
                       onChange={(e) =>
                         setTextStyle((s) => ({ ...s, size: Number(e.target.value) }))
                       }
-                      className="w-full"
+                      className="w-full accent-blue-500 ios-slider"
                     />
                   </div>
                 </div>
@@ -512,27 +514,52 @@ export default function GarminOverlayApp() {
 
               {openPanel === 'route' && (
                 <div>
-                  <div className="text-sm mb-2">宽度</div>
-                  <input type="range" min={1} max={20} value={routeStyle.width} onChange={(e)=>setRouteStyle((s)=>({...s, width: Number(e.target.value)}))} className="w-full" />
-                  <div className="text-sm mt-3 mb-2">缩放</div>
-                  <div className="flex gap-2 items-center">
-                    <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setRouteStyle((s)=>({...s, scale: Math.min(20, s.scale*1.12)}))}>放大</button>
-                    <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setRouteStyle((s)=>({...s, scale: Math.max(0.05, s.scale*0.88)}))}>缩小</button>
-                    <div className="ml-2">当前: {routeStyle.scale.toFixed(2)}x</div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-3">
-                    <div className="text-sm">颜色</div>
+                  <div className="flex items-center gap-4 mt-3">
                     <input type="color" value={routeStyle.color} onChange={(e)=>setRouteStyle((s)=>({...s, color:e.target.value}))} />
                     <div className="ml-4 text-sm">透明度</div>
-                    <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} />
+                    <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} className="w-full accent-blue-500 ios-slider" />
                   </div>
                 </div>
               )}
 
-              {openPanel === 'export' && (
-                <div className="flex gap-3">
-                  <button className="px-4 py-2 bg-white/6 rounded-lg" onClick={() => exportImage(false)}>导出 PNG</button>
-                  <button className="px-4 py-2 bg-white/6 rounded-lg" onClick={() => exportImage(true)}>导出 JPG</button>
+              {openPanel === 'route_2' && (
+                <div className="space-y-4 w-full">
+                  {/* 路线宽度 */}
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-14 text-sm text-gray-200">宽度</div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={20}
+                      value={routeStyle.width}
+                      onChange={(e) =>
+                        setRouteStyle((s) => ({ ...s, width: Number(e.target.value) }))
+                      }
+                      className="flex-1 ios-slider"
+                    />
+                    <div className="w-16 text-sm text-right text-white">
+                      {routeStyle.width}
+                    </div>
+                  </div>
+
+                  {/* 路线缩放 */}
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-14 text-sm text-gray-200">缩放</div>
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={10}
+                      step={0.05}
+                      value={routeStyle.scale}
+                      onChange={(e) =>
+                        setRouteStyle((s) => ({ ...s, scale: Number(e.target.value) }))
+                      }
+                      className="flex-1 ios-slider"
+                    />
+                    <div className="w-16 text-sm text-right text-white">
+                      {routeStyle.scale.toFixed(2)}x
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
