@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Camera, ImagePlus } from 'lucide-react'
 
 
@@ -430,19 +430,137 @@ export default function GarminOverlayApp() {
     setTextPos({ x: 120, y: 60 });
   }
 
+  function UploadPage({ onImageSelected }) {
+    const [uploadState, setUploadState] = useState('idle'); // idle, loading, success
+    const [isDragOver, setIsDragOver] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const handleFileSelect = useCallback((file) => {
+      if (!file || !file.type.startsWith('image/')) return;
+
+      setUploadState('loading');
+      
+      // 模拟上传过程
+      setTimeout(() => {
+        setUploadState('success');
+        onImageSelected(file);
+        
+        // 重置状态
+        setTimeout(() => {
+          setUploadState('idle');
+        }, 2000);
+      }, 1500);
+    }, [onImageSelected]);
+
+    const handleInputChange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        handleFileSelect(file);
+      }
+    };
+
+    const handleClick = () => {
+      fileInputRef.current?.click();
+    };
+
+    // 拖拽处理函数
+    const handleDragEnter = useCallback((e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+    }, []);
+
+    const handleDragOver = useCallback((e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    }, []);
+
+    const handleDrop = useCallback((e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+
+      const files = Array.from(e.dataTransfer.files);
+      const imageFile = files.find(file => file.type.startsWith('image/'));
+      
+      if (imageFile && uploadState === 'idle') {
+        handleFileSelect(imageFile);
+      }
+    }, [handleFileSelect, uploadState]);
+
+    const getUploadText = () => {
+      switch (uploadState) {
+        case 'loading':
+          return 'Uploading...';
+        case 'success':
+          return 'Upload Complete!';
+        default:
+          return 'Choose Image';
+      }
+    };
+
+    const getHintText = () => {
+      if (uploadState !== 'idle') return '';
+      return 'Or drag and drop your photo here';
+    };
+
+    return (
+      <div className={`upload-container ${uploadState}`}>
+        <div className="upload-content">
+          <h1 className="brand-title">G A R M I N</h1>
+          <p className="upload-subtitle">Upload your adventure</p>
+          
+          <div
+            className={`upload-area ${isDragOver ? 'drag-over' : ''}`}
+            onClick={handleClick}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            role="button"
+            tabIndex={0}
+            aria-label="Upload image"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleClick();
+              }
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleInputChange}
+              disabled={uploadState !== 'idle'}
+            />
+            
+            <div className="upload-circle">
+              <Camera size={60} className="camera-icon" />
+            </div>
+            
+            <div className="upload-text">{getUploadText()}</div>
+            {getHintText() && (
+              <div className="upload-hint">{getHintText()}</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-700 text-white flex items-center justify-center p-4">
       <div className="w-full max-w-xl mx-auto">
         {page === "upload" && (
-          <div className="backdrop-blur-xl bg-white/10 rounded-2xl p-8 text-center shadow-md">
-            <h1 className="text-3xl font-semibold mb-4">G A R M I N</h1>
-            <label className="inline-flex flex-col items-center justify-center cursor-pointer">
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => onImageSelected(e.target.files?.[0])} />
-              <div className="w-36 h-36 rounded-full bg-white/20 flex items-center justify-center text-xl font-medium shadow-lg">
-                <Camera size={48} />
-              </div>
-            </label>
-          </div>
+           <UploadPage onImageSelected={onImageSelected} />
         )}
 
         {page === "activities" && (
