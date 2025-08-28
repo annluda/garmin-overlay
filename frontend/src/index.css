@@ -111,6 +111,7 @@ button:focus-visible {
 /* 活动列表 */
 /* 主容器 - iOS玻璃态效果 */
 .ios-activities-modal {
+  margin-top: 40px;
   background: rgba(28, 28, 30, 0.78);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -354,6 +355,7 @@ button:focus-visible {
 /* 上传页面样式 - 添加到你的CSS文件中 */
 
 .upload-container {
+  margin-top: 180px;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(25px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.2);

@@ -607,7 +607,7 @@ export default function GarminOverlayApp() {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-700 text-white flex items-center justify-center p-4">
+    <div className="min-h-screen w-screen bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-700 text-white flex items-start justify-center p-4 pt-6">
       <div className="w-full max-w-xl mx-auto">
         {page === "upload" && (
            <UploadPage onImageSelected={onImageSelected} />
