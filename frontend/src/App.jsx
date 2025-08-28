@@ -196,24 +196,24 @@ export default function GarminOverlayApp() {
     let y = textPos.y;
     lines.forEach((line, index) => {
       const isSmallText = index % 2 === 0;
-      const fontSize = isSmallText ? textStyle.size * 0.4 : textStyle.size;
+      const fontSize = isSmallText ? textStyle.size * 0.45 : textStyle.size;
       
-      ctx.font = `${fontSize}px 'DIN Condensed', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      ctx.font = `${fontSize}px 'Futura', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
       
       const centerX = textPos.x; // 如果textPos.x已经是中心点，直接使用
       
-      if (!isSmallText) {
-        ctx.save();
+      ctx.save();
+      if (isSmallText) {
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(line, centerX, y);
+      } else {
         ctx.translate(centerX, y);
-        ctx.scale(1.5, 1); 
+        ctx.scale(1.4, 1); 
         ctx.translate(-centerX, -y);
+        ctx.fillText(line, centerX, y);
       }
-      ctx.fillText(line, centerX, y);
-      if (!isSmallText) {
-        ctx.restore(); // 恢复变换
-      }
-
-      y += fontSize * 1.3;
+      ctx.restore(); // 恢复变换
+      y += fontSize * 1.6;
     });
     ctx.restore();
   }
@@ -395,20 +395,24 @@ export default function GarminOverlayApp() {
     let y = textPos.y;
     lines.forEach((line, index) => {
       const isSmallText = index % 2 === 0;
-      const fontSize = isSmallText ? textStyle.size * 0.4 : textStyle.size;
-      ctx.font = `${fontSize}px 'DIN Condensed', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      const fontSize = isSmallText ? textStyle.size * 0.45 : textStyle.size;
+      
+      ctx.font = `${fontSize}px 'Futura', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      
       const centerX = textPos.x; // 如果textPos.x已经是中心点，直接使用
-      if (!isSmallText) {
-        ctx.save();
+      
+      ctx.save();
+      if (isSmallText) {
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(line, centerX, y);
+      } else {
         ctx.translate(centerX, y);
-        ctx.scale(1.5, 1); 
+        ctx.scale(1.4, 1); 
         ctx.translate(-centerX, -y);
+        ctx.fillText(line, centerX, y);
       }
-      ctx.fillText(line, centerX, y);
-      if (!isSmallText) {
-        ctx.restore(); // 恢复变换
-      }
-      y += fontSize * 1.3;
+      ctx.restore(); // 恢复变换
+      y += fontSize * 1.6;
     });
     ctx.restore();
 
