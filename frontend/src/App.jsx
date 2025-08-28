@@ -591,6 +591,21 @@ export default function GarminOverlayApp() {
     );
   }
 
+  const handleButtonClick = (panelName) => {
+      if (openPanel === panelName) {
+          setOpenPanel(null);
+          return;
+      }
+      if (openPanel !== null) {
+          setOpenPanel(null);
+          setTimeout(() => {
+              setOpenPanel(panelName);
+          }, 100); 
+      } else {
+          setOpenPanel(panelName);
+      }
+  };
+
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-700 text-white flex items-center justify-center p-4">
       <div className="w-full max-w-xl mx-auto">
@@ -685,14 +700,14 @@ export default function GarminOverlayApp() {
             {/* Bottom fixed toolbar - 4 buttons, each opens a sliding panel */}
             <div className="fixed bottom-4 left-0 right-0 flex justify-center pointer-events-none">
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}><CaseSensitive /></button>
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}><Map /></button>
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route_2' ? null : 'route_2')}><MapPinPen /></button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => handleButtonClick('text')}><CaseSensitive /></button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => handleButtonClick('route')}><Map /></button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => handleButtonClick('route2')}><MapPinPen /></button>
               </div>
             </div>
 
             {/* Sliding panels */}
-            <div className={`fixed left-4 right-4 bottom-20 rounded-xl bg-white/6 backdrop-blur-xl p-4 transition-transform duration-300 ${openPanel ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0 pointer-events-none'}`}>
+            <div className={`fixed left-4 right-4 bottom-20 rounded-xl bg-white/6 backdrop-blur-xl p-4 transition-transform easy-in-out duration-300 ${openPanel !== null ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0 pointer-events-none'}`}>
               {openPanel === 'text' && (
                 <div className="flex items-center gap-4 mt-3">
                   {/* 颜色选择器 */}
@@ -762,7 +777,7 @@ export default function GarminOverlayApp() {
                 
               )}
 
-              {openPanel === 'route_2' && (
+              {openPanel === 'route2' && (
                 <div className="space-y-4 w-full">
                   {/* 路线宽度 */}
                   <div className="flex items-center gap-3 w-full">
