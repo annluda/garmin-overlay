@@ -1,8 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Camera, ImagePlus } from 'lucide-react'
+import { Camera } from 'lucide-react'
 
 
-const BACKEND_BASE = "http://172.20.10.2:9245"; // replace with your server
+const BACKEND_BASE = import.meta.env.VITE_BACKEND_BASE; 
 
 export default function GarminOverlayApp() {
   const [page, setPage] = useState("upload"); // upload | activities | editor
