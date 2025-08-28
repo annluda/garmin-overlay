@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Camera } from 'lucide-react'
+import { Camera, ArrowBigLeft , UndoDot, Download } from 'lucide-react'
 
 
 const BACKEND_BASE = import.meta.env.VITE_BACKEND_BASE; 
@@ -553,10 +553,26 @@ export default function GarminOverlayApp() {
         {page === "editor" && (
           <div className="bg-white/5 rounded-2xl p-2 shadow-lg">
             <div className="flex items-center justify-between p-2">
-              <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => setPage("activities")}>返回</button>
-              <div className="flex gap-2">
-                <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => exportImage(true)}>导出</button>
-                <button className="px-3 py-2 bg-white/6 rounded-lg" onClick={() => resetTransforms()}>重置</button>
+              <button
+                className="w-10 h-10 flex items-center justify-center rounded-full"
+                onClick={() => setPage("activities")}
+              >
+                <ArrowBigLeft />
+              </button>
+
+              <div className="flex gap-3">
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full"
+                  onClick={() => resetTransforms()}
+                >
+                  <UndoDot />
+                </button>
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full"
+                  onClick={() => exportImage(true)}
+                >
+                  <Download />
+                </button>
               </div>
             </div>
 
@@ -619,22 +635,35 @@ export default function GarminOverlayApp() {
               )}
 
               {openPanel === 'route' && (
-                <div>
-                  <div className="flex items-center gap-4 mt-3">
+                
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="flex flex-col items-center">
                     <input type="color" value={routeStyle.color} onChange={(e)=>setRouteStyle((s)=>({...s, color:e.target.value}))} />
-                    <div className="text-sm">透明度</div>
-                    <div className="flex flex-col items-center flex-1 w-full">
-                      <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} className="w-full accent-blue-500 ios-slider" />
-                    </div>
+                  </div>
+                  <div className="ml-4 text-sm">缩放</div>
+                  {/* 路线缩放 */}
+                  <div className="flex flex-col items-center flex-1 w-full">
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={2}
+                      step={0.05}
+                      value={routeStyle.scale}
+                      onChange={(e) =>
+                        setRouteStyle((s) => ({ ...s, scale: Number(e.target.value) }))
+                      }
+                      className="w-full accent-blue-500 ios-slider"
+                    />
                   </div>
                 </div>
+                
               )}
 
               {openPanel === 'route_2' && (
                 <div className="space-y-4 w-full">
                   {/* 路线宽度 */}
                   <div className="flex items-center gap-3 w-full">
-                    <div className="w-14 text-sm text-gray-200">宽度</div>
+                    <div className="w-16 text-sm text-gray-200">宽度</div>
                     <input
                       type="range"
                       min={10}
@@ -650,24 +679,15 @@ export default function GarminOverlayApp() {
                     </div>
                   </div>
 
-                  {/* 路线缩放 */}
+                  {/* 透明度 */}
                   <div className="flex items-center gap-3 w-full">
-                    <div className="w-14 text-sm text-gray-200">缩放</div>
-                    <input
-                      type="range"
-                      min={0.1}
-                      max={2}
-                      step={0.05}
-                      value={routeStyle.scale}
-                      onChange={(e) =>
-                        setRouteStyle((s) => ({ ...s, scale: Number(e.target.value) }))
-                      }
-                      className="flex-1 ios-slider"
-                    />
+                    <div className="w-16 text-sm text-gray-200">透明度</div>
+                    <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} className="flex-1 ios-slider" />
                     <div className="w-16 text-sm text-right text-white">
-                      {routeStyle.scale.toFixed(2)}x
+                      {routeStyle.alpha.toFixed(2)}
                     </div>
                   </div>
+                
                 </div>
               )}
             </div>
