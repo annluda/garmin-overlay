@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Camera, ArrowBigLeft , UndoDot, Download } from 'lucide-react'
+import { Camera, ArrowBigLeft , UndoDot, Download , CaseSensitive, Map, MapPinPen} from 'lucide-react'
 
 
 const BACKEND_BASE = import.meta.env.VITE_BACKEND_BASE; 
@@ -685,9 +685,9 @@ export default function GarminOverlayApp() {
             {/* Bottom fixed toolbar - 4 buttons, each opens a sliding panel */}
             <div className="fixed bottom-4 left-0 right-0 flex justify-center pointer-events-none">
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}>T</button>
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}>R</button>
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route_2' ? null : 'route_2')}>S</button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'text' ? null : 'text')}><CaseSensitive /></button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route' ? null : 'route')}><Map /></button>
+                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => setOpenPanel(openPanel === 'route_2' ? null : 'route_2')}><MapPinPen /></button>
               </div>
             </div>
 
