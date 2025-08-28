@@ -14,6 +14,7 @@ export default function GarminOverlayApp() {
 
   const [routeCoords, setRouteCoords] = useState([]);
   const [routeBBox, setRouteBBox] = useState(null); // {minLat,maxLat,minLon,maxLon}
+  const [baseRouteBounds, setBaseRouteBounds] = useState(null); // {minX,maxX,minY,maxY}
 
   // overlay style state
   const [textStyle, setTextStyle] = useState({ size: 48, color: "#ffffff" });
@@ -116,6 +117,7 @@ export default function GarminOverlayApp() {
 
     setRouteStyle((s) => ({ ...s, scale, offsetX, offsetY }));
     setRouteBBox({ minLat, maxLat, minLon, maxLon });
+    setBaseRouteBounds({ minX, maxX, minY, maxY });
   }
 
   // when gpx or image loads, parse coords and compute initial transform
@@ -206,14 +208,16 @@ export default function GarminOverlayApp() {
       if (isSmallText) {
         ctx.globalAlpha = 0.8;
         ctx.fillText(line, centerX, y);
+        y += fontSize * 1.3;
       } else {
         ctx.translate(centerX, y);
         ctx.scale(1.4, 1); 
         ctx.translate(-centerX, -y);
         ctx.fillText(line, centerX, y);
+        y += fontSize * 2;
       }
       ctx.restore(); // 恢复变换
-      y += fontSize * 1.6;
+      
     });
     ctx.restore();
   }
@@ -265,7 +269,10 @@ export default function GarminOverlayApp() {
       }
       // single touch -> decide drag text or route
       const p = clientToCanvas(t[0].clientX, t[0].clientY);
-      const textBox = { x: textPos.x, y: textPos.y, w: 420, h: textStyle.size * 4 };
+      const textWidth = 420;
+      const textHalfWidth = textWidth / 2;
+      const textHeight = textStyle.size * 4;
+      const textBox = { x: textPos.x - textHalfWidth, y: textPos.y, w: textWidth, h: textHeight };
       if (p.x >= textBox.x && p.x <= textBox.x + textBox.w && p.y >= textBox.y && p.y <= textBox.y + textBox.h) {
         gestureRef.current = { type: 'drag_text', last: p };
       } else {
@@ -274,7 +281,10 @@ export default function GarminOverlayApp() {
     } else {
       // mouse event
       const p = clientToCanvas(e.clientX, e.clientY);
-      const textBox = { x: textPos.x, y: textPos.y, w: 420, h: textStyle.size * 4 };
+      const textWidth = 420;
+      const textHalfWidth = textWidth / 2;
+      const textHeight = textStyle.size * 4;
+      const textBox = { x: textPos.x - textHalfWidth, y: textPos.y, w: textWidth, h: textHeight };
       if (p.x >= textBox.x && p.x <= textBox.x + textBox.w && p.y >= textBox.y && p.y <= textBox.y + textBox.h) {
         gestureRef.current = { type: 'drag_text', last: p };
       } else {
@@ -298,11 +308,24 @@ export default function GarminOverlayApp() {
         const dist = Math.hypot(dx, dy);
         const r = dist / gestureRef.current.initialDist;
         const newScale = Math.max(0.05, Math.min(20, gestureRef.current.initialScale * r));
-        const focal = gestureRef.current.focal;
         const ratio = newScale / gestureRef.current.initialScale;
+        const focal = gestureRef.current.focal;
         const newOffsetX = gestureRef.current.initialOffsetX + focal.x * (1 - ratio);
         const newOffsetY = gestureRef.current.initialOffsetY + focal.y * (1 - ratio);
-        setRouteStyle((s) => ({ ...s, scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY }));
+        setRouteStyle((s) => {
+          let clampedX = newOffsetX;
+          let clampedY = newOffsetY;
+          if (baseRouteBounds && canvasRef.current) {
+            const sc = newScale;
+            const minOffX = - (baseRouteBounds.minX * sc);
+            const maxOffX = canvasRef.current.width - (baseRouteBounds.maxX * sc);
+            clampedX = Math.max(minOffX, Math.min(clampedX, maxOffX));
+            const minOffY = - (baseRouteBounds.minY * sc);
+            const maxOffY = canvasRef.current.height - (baseRouteBounds.maxY * sc);
+            clampedY = Math.max(minOffY, Math.min(clampedY, maxOffY));
+          }
+          return { ...s, scale: newScale, offsetX: clampedX, offsetY: clampedY };
+        });
         return;
       }
       const p = clientToCanvas(t[0].clientX, t[0].clientY);
@@ -311,9 +334,34 @@ export default function GarminOverlayApp() {
       const dx = p.x - g.last.x;
       const dy = p.y - g.last.y;
       if (g.type === 'drag_text') {
-        setTextPos((tpos) => ({ x: Math.max(0, tpos.x + dx), y: Math.max(0, tpos.y + dy) }));
+        setTextPos((tpos) => {
+          let newX = tpos.x + dx;
+          let newY = tpos.y + dy;
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const textWidth = 420;
+            const halfW = textWidth / 2;
+            const h = textStyle.size * 4;
+            newX = Math.max(halfW, Math.min(newX, canvas.width - halfW));
+            newY = Math.max(0, Math.min(newY, canvas.height - h));
+          }
+          return { x: newX, y: newY };
+        });
       } else if (g.type === 'drag_route') {
-        setRouteStyle((rs) => ({ ...rs, offsetX: rs.offsetX + dx, offsetY: rs.offsetY + dy }));
+        setRouteStyle((rs) => {
+          let newOffsetX = rs.offsetX + dx;
+          let newOffsetY = rs.offsetY + dy;
+          if (baseRouteBounds && canvasRef.current) {
+            const sc = rs.scale;
+            const minOffX = - (baseRouteBounds.minX * sc);
+            const maxOffX = canvasRef.current.width - (baseRouteBounds.maxX * sc);
+            newOffsetX = Math.max(minOffX, Math.min(newOffsetX, maxOffX));
+            const minOffY = - (baseRouteBounds.minY * sc);
+            const maxOffY = canvasRef.current.height - (baseRouteBounds.maxY * sc);
+            newOffsetY = Math.max(minOffY, Math.min(newOffsetY, maxOffY));
+          }
+          return { ...rs, offsetX: newOffsetX, offsetY: newOffsetY };
+        });
       }
       gestureRef.current.last = p;
     } else {
@@ -324,9 +372,34 @@ export default function GarminOverlayApp() {
       const dx = p.x - g.last.x;
       const dy = p.y - g.last.y;
       if (g.type === 'drag_text') {
-        setTextPos((tpos) => ({ x: Math.max(0, tpos.x + dx), y: Math.max(0, tpos.y + dy) }));
+        setTextPos((tpos) => {
+          let newX = tpos.x + dx;
+          let newY = tpos.y + dy;
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const textWidth = 420;
+            const halfW = textWidth / 2;
+            const h = textStyle.size * 4;
+            newX = Math.max(halfW, Math.min(newX, canvas.width - halfW));
+            newY = Math.max(0, Math.min(newY, canvas.height - h));
+          }
+          return { x: newX, y: newY };
+        });
       } else if (g.type === 'drag_route') {
-        setRouteStyle((rs) => ({ ...rs, offsetX: rs.offsetX + dx, offsetY: rs.offsetY + dy }));
+        setRouteStyle((rs) => {
+          let newOffsetX = rs.offsetX + dx;
+          let newOffsetY = rs.offsetY + dy;
+          if (baseRouteBounds && canvasRef.current) {
+            const sc = rs.scale;
+            const minOffX = - (baseRouteBounds.minX * sc);
+            const maxOffX = canvasRef.current.width - (baseRouteBounds.maxX * sc);
+            newOffsetX = Math.max(minOffX, Math.min(newOffsetX, maxOffX));
+            const minOffY = - (baseRouteBounds.minY * sc);
+            const maxOffY = canvasRef.current.height - (baseRouteBounds.maxY * sc);
+            newOffsetY = Math.max(minOffY, Math.min(newOffsetY, maxOffY));
+          }
+          return { ...rs, offsetX: newOffsetX, offsetY: newOffsetY };
+        });
       }
       gestureRef.current.last = p;
     }
@@ -350,7 +423,18 @@ export default function GarminOverlayApp() {
       const r = newScale / s.scale;
       const newOffsetX = s.offsetX + mx * (1 - r);
       const newOffsetY = s.offsetY + my * (1 - r);
-      return { ...s, scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY };
+      let clampedX = newOffsetX;
+      let clampedY = newOffsetY;
+      if (baseRouteBounds && canvasRef.current) {
+        const sc = newScale;
+        const minOffX = - (baseRouteBounds.minX * sc);
+        const maxOffX = canvasRef.current.width - (baseRouteBounds.maxX * sc);
+        clampedX = Math.max(minOffX, Math.min(clampedX, maxOffX));
+        const minOffY = - (baseRouteBounds.minY * sc);
+        const maxOffY = canvasRef.current.height - (baseRouteBounds.maxY * sc);
+        clampedY = Math.max(minOffY, Math.min(clampedY, maxOffY));
+      }
+      return { ...s, scale: newScale, offsetX: clampedX, offsetY: clampedY };
     });
   }
 
@@ -405,14 +489,15 @@ export default function GarminOverlayApp() {
       if (isSmallText) {
         ctx.globalAlpha = 0.8;
         ctx.fillText(line, centerX, y);
+        y += fontSize * 1.3;
       } else {
         ctx.translate(centerX, y);
         ctx.scale(1.4, 1); 
         ctx.translate(-centerX, -y);
         ctx.fillText(line, centerX, y);
+        y += fontSize * 2;
       }
       ctx.restore(); // 恢复变换
-      y += fontSize * 1.6;
     });
     ctx.restore();
 
@@ -654,7 +739,21 @@ export default function GarminOverlayApp() {
                       step={0.05}
                       value={routeStyle.scale}
                       onChange={(e) =>
-                        setRouteStyle((s) => ({ ...s, scale: Number(e.target.value) }))
+                        setRouteStyle((s) => {
+                          const newScale = Number(e.target.value);
+                          let newOffsetX = s.offsetX;
+                          let newOffsetY = s.offsetY;
+                          if (baseRouteBounds && canvasRef.current) {
+                            const sc = newScale;
+                            const minOffX = - (baseRouteBounds.minX * sc);
+                            const maxOffX = canvasRef.current.width - (baseRouteBounds.maxX * sc);
+                            newOffsetX = Math.max(minOffX, Math.min(s.offsetX, maxOffX));
+                            const minOffY = - (baseRouteBounds.minY * sc);
+                            const maxOffY = canvasRef.current.height - (baseRouteBounds.maxY * sc);
+                            newOffsetY = Math.max(minOffY, Math.min(s.offsetY, maxOffY));
+                          }
+                          return { ...s, scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY };
+                        })
                       }
                       className="w-full accent-blue-500 ios-slider"
                     />
