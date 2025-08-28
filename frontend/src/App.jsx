@@ -520,7 +520,7 @@ export default function GarminOverlayApp() {
             <div className="ios-activities-list">
               {activities.length === 0 && (
                 <div className="ios-empty-state">
-                  <div className="ios-empty-icon">🏃‍♂️</div>
+                  <div className="ios-empty-icon">🛌</div>
                   <div className="ios-empty-text">正在加载或暂无活动</div>
                 </div>
               )}
