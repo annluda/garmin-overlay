@@ -61,18 +61,7 @@ button:focus-visible {
   box-shadow: 0 0 0 3px rgba(100,108,255,0.6);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
+
 
 /* Apple 风格滑块 */
 .ios-slider {
@@ -609,6 +598,37 @@ button:focus-visible {
     width: 150px;
     height: 150px;
   }
+}
+
+
+.btn-reset {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.btn-reset:focus,
+.btn-reset:focus-visible {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.btn-reset:hover {
+  box-shadow: none !important;
+}
+
+.btn-reset:active {
+  box-shadow: none !important;
 }
 
 @tailwind base;

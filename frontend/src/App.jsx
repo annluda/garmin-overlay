@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Camera, ArrowBigLeft , UndoDot, Download , CaseSensitive, Map, MapPinPen} from 'lucide-react'
+import { Camera, ArrowBigLeft , UndoDot, Download , CaseSensitive,  Scaling , MapPin , Blend , RulerDimensionLine} from 'lucide-react'
 
 
 const BACKEND_BASE = import.meta.env.VITE_BACKEND_BASE; 
@@ -670,9 +670,9 @@ export default function GarminOverlayApp() {
             {/* Bottom fixed toolbar - 4 buttons, each opens a sliding panel */}
             <div className="fixed bottom-4 left-0 right-0 flex justify-center pointer-events-none">
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => handleButtonClick('text')}><CaseSensitive /></button>
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => handleButtonClick('route')}><Map /></button>
-                <button className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/20 text-black font-medium shadow-md active:scale-95 transition duration-200" onClick={() => handleButtonClick('route2')}><MapPinPen /></button>
+                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'text' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('text')}><CaseSensitive /></button>
+                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'route' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('route')}><MapPin /></button>
+                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'route2' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('route2')}><Scaling /></button>
               </div>
             </div>
 
@@ -733,11 +733,11 @@ export default function GarminOverlayApp() {
                     <div className="flex items-center gap-4">
                       {/* Tab-like buttons for toggling */}
                       <div className="flex gap-2">
-                        <button onClick={() => setActiveAppearanceSlider('width')} className={`px-2 py-1 rounded-md text-sm font-medium transition ${activeAppearanceSlider === 'width' ? 'bg-white/20 text-white' : 'text-gray-400'}`}>
-                          宽度
+                        <button onClick={() => setActiveAppearanceSlider('width')} className={`btn-reset px-2 py-1 rounded-md text-sm font-medium transition text-white ${activeAppearanceSlider === 'width' ? 'bg-black/30 hover:bg-black/30 active:bg-black/30' : 'bg-transparent hover:bg-transparent active:bg-transparent'}`}>
+                          <RulerDimensionLine />
                         </button>
-                        <button onClick={() => setActiveAppearanceSlider('alpha')} className={`px-2 py-1 rounded-md text-sm font-medium transition ${activeAppearanceSlider === 'alpha' ? 'bg-white/20 text-white' : 'text-gray-400'}`}>
-                          透明度
+                        <button onClick={() => setActiveAppearanceSlider('alpha')} className={`btn-reset px-2 py-1 rounded-md text-sm font-medium transition text-white ${activeAppearanceSlider === 'alpha' ? 'bg-black/30 hover:bg-black/30 active:bg-black/30' : 'bg-transparent hover:bg-transparent active:bg-transparent'}`}>
+                          <Blend />
                         </button>
                       </div>
 
