@@ -786,19 +786,28 @@ export default function GarminOverlayApp() {
                       value={routeStyle.scale}
                       onChange={(e) =>
                         setRouteStyle((s) => {
+                          if (!baseRouteBounds) return s;
                           const newScale = Number(e.target.value);
-                          let newOffsetX = s.offsetX;
-                          let newOffsetY = s.offsetY;
-                          if (baseRouteBounds && canvasRef.current) {
+                          const oldScale = s.scale;
+                          
+                          const routeCenterX = (baseRouteBounds.minX + baseRouteBounds.maxX) / 2;
+                          const routeCenterY = (baseRouteBounds.minY + baseRouteBounds.maxY) / 2;
+
+                          const newOffsetX = s.offsetX + routeCenterX * (oldScale - newScale);
+                          const newOffsetY = s.offsetY + routeCenterY * (oldScale - newScale);
+
+                          let clampedX = newOffsetX;
+                          let clampedY = newOffsetY;
+                          if (canvasRef.current) {
                             const sc = newScale;
                             const minOffX = - (baseRouteBounds.minX * sc);
                             const maxOffX = canvasRef.current.width - (baseRouteBounds.maxX * sc);
-                            newOffsetX = Math.max(minOffX, Math.min(s.offsetX, maxOffX));
+                            clampedX = Math.max(minOffX, Math.min(newOffsetX, maxOffX));
                             const minOffY = - (baseRouteBounds.minY * sc);
                             const maxOffY = canvasRef.current.height - (baseRouteBounds.maxY * sc);
-                            newOffsetY = Math.max(minOffY, Math.min(s.offsetY, maxOffY));
+                            clampedY = Math.max(minOffY, Math.min(newOffsetY, maxOffY));
                           }
-                          return { ...s, scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY };
+                          return { ...s, scale: newScale, offsetX: clampedX, offsetY: clampedY };
                         })
                       }
                       className="flex-1 ios-slider"
