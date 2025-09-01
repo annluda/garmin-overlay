@@ -153,6 +153,14 @@ export default function GarminOverlayApp() {
   }
 
   function drawCanvas() {
+
+    const font = new FontFace(
+        "FSDillonPro",
+        "url(/src/assets/fonts/FSDillonProMedium.woff2)",
+      );
+    font.load();
+    document.fonts.add(font);
+
     const canvas = canvasRef.current;
     const img = imgRef.current;
     if (!canvas || !img || !img.complete) return;
@@ -200,7 +208,7 @@ export default function GarminOverlayApp() {
       const isSmallText = index % 2 === 0;
       const fontSize = isSmallText ? textStyle.size * 0.45 : textStyle.size;
       
-      ctx.font = `${fontSize}px 'Futura', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      ctx.font = `${fontSize}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
       
       const centerX = textPos.x; // 如果textPos.x已经是中心点，直接使用
       
@@ -440,6 +448,13 @@ export default function GarminOverlayApp() {
 
   // export preserving original resolution
   function exportImage(asJpeg = false) {
+    const font = new FontFace(
+        "FSDillonPro",
+        "url(/src/assets/fonts/FSDillonProMedium.woff2)",
+      );
+    font.load();
+    document.fonts.add(font);
+
     const img = imgRef.current;
     if (!img) return;
     const off = document.createElement("canvas");
@@ -481,7 +496,7 @@ export default function GarminOverlayApp() {
       const isSmallText = index % 2 === 0;
       const fontSize = isSmallText ? textStyle.size * 0.45 : textStyle.size;
       
-      ctx.font = `${fontSize}px 'Futura', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      ctx.font = `${fontSize}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
       
       const centerX = textPos.x; // 如果textPos.x已经是中心点，直接使用
       
