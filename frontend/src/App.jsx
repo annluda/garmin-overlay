@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Camera, ArrowBigLeft , UndoDot, Download , CaseSensitive,  Scaling , MapPin , Blend , RulerDimensionLine} from 'lucide-react'
+import { Camera, ArrowBigLeft , UndoDot, Download , CaseSensitive,  Scaling , MapPin , Blend , RulerDimensionLine, AlignVerticalSpaceAround } from 'lucide-react'
 
 
 const BACKEND_BASE = import.meta.env.VITE_BACKEND_BASE; 
@@ -490,6 +490,33 @@ export default function GarminOverlayApp() {
     }, mime, 0.95);
   }
 
+  function quickLayout() {
+    const canvas = canvasRef.current;
+    if (!canvas || !baseRouteBounds) return;
+
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const scale = routeStyle.scale;
+
+    const routeBaseHeight = baseRouteBounds.maxY - baseRouteBounds.minY;
+    const routeScaledHeight = routeBaseHeight * scale;
+    const textHeight = textStyle.size * 4;
+    const gap = canvasHeight * 0.05;
+    const totalContentHeight = routeScaledHeight + textHeight + gap;
+    const startY = Math.max(0, (canvasHeight - totalContentHeight) / 2);
+
+    const routeBaseWidth = baseRouteBounds.maxX - baseRouteBounds.minX;
+    const routeScaledWidth = routeBaseWidth * scale;
+    const newRouteOffsetX = (canvasWidth - routeScaledWidth) / 2 - (baseRouteBounds.minX * scale);
+    const newRouteOffsetY = startY - (baseRouteBounds.minY * scale);
+
+    setRouteStyle(s => ({ ...s, offsetX: newRouteOffsetX, offsetY: newRouteOffsetY }));
+
+    const newTextPosX = canvasWidth / 2;
+    const newTextPosY = startY + routeScaledHeight + gap;
+    setTextPos({ x: newTextPosX, y: newTextPosY });
+  }
+
   function resetTransforms() {
     setRouteStyle((s) => ({ ...s, scale: 1, offsetX: 0, offsetY: 0 }));
     setTextPos({ x: 120, y: 60 });
@@ -641,6 +668,12 @@ export default function GarminOverlayApp() {
               </button>
 
               <div className="flex gap-3">
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full"
+                  onClick={quickLayout}
+                >
+                  <AlignVerticalSpaceAround />
+                </button>
                 <button
                   className="w-10 h-10 flex items-center justify-center rounded-full"
                   onClick={() => resetTransforms()}
