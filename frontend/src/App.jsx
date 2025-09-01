@@ -758,7 +758,7 @@ export default function GarminOverlayApp() {
                         )}
                         {activeAppearanceSlider === 'alpha' && (
                           <div className="flex items-center gap-2 w-full">
-                            <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} className="flex-1 ios-slider" />
+                            <input type="range" min={0.1} max={1} step={0.05} value={routeStyle.alpha} onChange={(e)=>setRouteStyle((s)=>({...s, alpha: Number(e.target.value)}))} className="flex-1 opacity-slider" />
                             <div className="w-10 text-sm text-right text-white">{routeStyle.alpha.toFixed(2)}</div>
                           </div>
                         )}
