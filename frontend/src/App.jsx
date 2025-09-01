@@ -152,27 +152,28 @@ export default function GarminOverlayApp() {
     return `距离\n${(a.distance/1000).toFixed(2)} km\n爬升海拔\n${a.elevationGain} m\n时间\n${formatDurationShort(a.duration)}`;
   }
 
-  function drawCanvas() {
-
-    const font = new FontFace(
+  // Reusable drawing function with proper font loading
+  async function drawOverlay(ctx, width, height) {
+    // Ensure font is loaded before drawing
+    if (!document.fonts.check("12px FSDillonPro")) {
+      const font = new FontFace(
         "FSDillonPro",
-        "url(/src/assets/fonts/FSDillonProMedium.woff2)",
+        "url(/src/assets/fonts/FSDillonProMedium.woff2)"
       );
-    font.load();
-    document.fonts.add(font);
+      try {
+        await font.load();
+        document.fonts.add(font);
+      } catch (e) {
+        console.error("Font load error:", e);
+      }
+    }
 
-    const canvas = canvasRef.current;
     const img = imgRef.current;
-    if (!canvas || !img || !img.complete) return;
-    const ctx = canvas.getContext("2d");
-
-    // keep canvas internal size at natural image pixels, scale via CSS
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
+    if (!img) return;
 
     // clear and draw image
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
 
     // draw route
     if (routeCoords && routeCoords.length > 0 && routeBBox) {
@@ -186,8 +187,8 @@ export default function GarminOverlayApp() {
       ctx.strokeStyle = routeStyle.color;
       ctx.beginPath();
       routeCoords.forEach((c, i) => {
-        const baseX = ((c.lon - minLon) / lonRange) * canvas.width;
-        const baseY = ((maxLat - c.lat) / latRange) * canvas.height;
+        const baseX = ((c.lon - minLon) / lonRange) * width;
+        const baseY = ((maxLat - c.lat) / latRange) * height;
         const x = baseX * routeStyle.scale + routeStyle.offsetX;
         const y = baseY * routeStyle.scale + routeStyle.offsetY;
         if (i === 0) ctx.moveTo(x, y);
@@ -210,7 +211,7 @@ export default function GarminOverlayApp() {
       
       ctx.font = `${fontSize}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
       
-      const centerX = textPos.x; // 如果textPos.x已经是中心点，直接使用
+      const centerX = textPos.x;
       
       ctx.save();
       if (isSmallText) {
@@ -224,10 +225,22 @@ export default function GarminOverlayApp() {
         ctx.fillText(line, centerX, y);
         y += fontSize * 2;
       }
-      ctx.restore(); // 恢复变换
-      
+      ctx.restore();
     });
     ctx.restore();
+  }
+
+  async function drawCanvas() {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (!canvas || !img || !img.complete) return;
+    const ctx = canvas.getContext("2d");
+
+    // keep canvas internal size at natural image pixels, scale via CSS
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+
+    await drawOverlay(ctx, canvas.width, canvas.height);
   }
 
   useEffect(() => {
@@ -446,15 +459,7 @@ export default function GarminOverlayApp() {
     });
   }
 
-  // export preserving original resolution
-  function exportImage(asJpeg = false) {
-    const font = new FontFace(
-        "FSDillonPro",
-        "url(/src/assets/fonts/FSDillonProMedium.woff2)",
-      );
-    font.load();
-    document.fonts.add(font);
-
+  async function exportImage(asJpeg = false) {
     const img = imgRef.current;
     if (!img) return;
     const off = document.createElement("canvas");
@@ -462,59 +467,8 @@ export default function GarminOverlayApp() {
     off.height = img.naturalHeight;
     const ctx = off.getContext("2d");
 
-    ctx.drawImage(img, 0, 0, off.width, off.height);
-
-    if (routeCoords && routeCoords.length > 0 && routeBBox) {
-      const { minLat, maxLat, minLon, maxLon } = routeBBox;
-      const latRange = maxLat - minLat || 1;
-      const lonRange = maxLon - minLon || 1;
-      ctx.save();
-      ctx.globalAlpha = routeStyle.alpha;
-      ctx.lineWidth = Math.max(1, routeStyle.width);
-      ctx.strokeStyle = routeStyle.color;
-      ctx.beginPath();
-      routeCoords.forEach((c, i) => {
-        const baseX = ((c.lon - minLon) / lonRange) * off.width;
-        const baseY = ((maxLat - c.lat) / latRange) * off.height;
-        const x = baseX * routeStyle.scale + routeStyle.offsetX;
-        const y = baseY * routeStyle.scale + routeStyle.offsetY;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // draw text
-    ctx.save();
-    ctx.fillStyle = textStyle.color;
-    ctx.textBaseline = "top";
-    ctx.textAlign = "center";
-    const lines = buildActivityText().split("\n").filter(Boolean);
-    let y = textPos.y;
-    lines.forEach((line, index) => {
-      const isSmallText = index % 2 === 0;
-      const fontSize = isSmallText ? textStyle.size * 0.45 : textStyle.size;
-      
-      ctx.font = `${fontSize}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
-      
-      const centerX = textPos.x; // 如果textPos.x已经是中心点，直接使用
-      
-      ctx.save();
-      if (isSmallText) {
-        ctx.globalAlpha = 0.8;
-        ctx.fillText(line, centerX, y);
-        y += fontSize * 1.3;
-      } else {
-        ctx.translate(centerX, y);
-        ctx.scale(1.4, 1); 
-        ctx.translate(-centerX, -y);
-        ctx.fillText(line, centerX, y);
-        y += fontSize * 2;
-      }
-      ctx.restore(); // 恢复变换
-    });
-    ctx.restore();
+    // Use the new reusable drawing function
+    await drawOverlay(ctx, off.width, off.height);
 
     const mime = asJpeg ? "image/jpeg" : "image/png";
     off.toBlob((blob) => {
