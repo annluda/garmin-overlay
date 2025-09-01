@@ -249,6 +249,12 @@ export default function GarminOverlayApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageUrl, routeCoords, routeStyle, textStyle, textPos, routeBBox, selectedActivity]);
 
+  useEffect(() => {
+    if (page === 'editor' && routeBBox) {
+      drawCanvas();
+    }
+  }, [routeBBox, page]);
+
   function onImgLoad() {
     // when image finishes loading, if we have coords fit them
     const img = imgRef.current;
