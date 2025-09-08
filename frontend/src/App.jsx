@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Camera, ArrowBigLeft , UndoDot, Download , CaseSensitive,  Scaling , MapPin , Blend , RulerDimensionLine, AlignVerticalSpaceAround } from 'lucide-react'
+import { Camera, ArrowBigLeft , UndoDot, Download , CaseSensitive,  Scaling , MapPin , Blend , RulerDimensionLine, AlignVerticalSpaceAround, Type, Plus } from 'lucide-react'
 
 
 const BACKEND_BASE = import.meta.env.VITE_BACKEND_BASE; 
@@ -21,6 +21,11 @@ export default function GarminOverlayApp() {
   const [routeStyle, setRouteStyle] = useState({ color: "#ff5100ff", width: 20, alpha: 1, scale: 1, offsetX: 0, offsetY: 0 });
 
   const [textPos, setTextPos] = useState({ x: 120, y: 60 });
+
+  // 新增自定义文本框状态
+  const [customTextBoxes, setCustomTextBoxes] = useState([]);
+  const [selectedTextBox, setSelectedTextBox] = useState(null);
+  const [showTextInput, setShowTextInput] = useState(false);
 
   const [openPanel, setOpenPanel] = useState(null); 
   const [activeAppearanceSlider, setActiveAppearanceSlider] = useState('width'); 
@@ -153,6 +158,42 @@ export default function GarminOverlayApp() {
     return `距离\n${(a.distance/1000).toFixed(2)} km\n爬升海拔\n${a.elevationGain} m\n时间\n${formatDurationShort(a.duration)}`;
   }
 
+  // 新增函数：添加自定义文本框
+  function addCustomTextBox() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const newTextBox = {
+      id: Date.now(),
+      text: "自定义文本",
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      size: 36
+    };
+
+    setCustomTextBoxes(prev => [...prev, newTextBox]);
+    setSelectedTextBox(newTextBox);
+    setShowTextInput(true);
+  }
+
+  // 新增函数：更新自定义文本框
+  function updateCustomTextBox(id, updates) {
+    setCustomTextBoxes(prev => prev.map(box => 
+      box.id === id ? { ...box, ...updates } : box
+    ));
+    if (selectedTextBox && selectedTextBox.id === id) {
+      setSelectedTextBox(prev => ({ ...prev, ...updates }));
+    }
+  }
+
+  // 新增函数：删除自定义文本框
+  function deleteCustomTextBox(id) {
+    setCustomTextBoxes(prev => prev.filter(box => box.id !== id));
+    if (selectedTextBox && selectedTextBox.id === id) {
+      setSelectedTextBox(null);
+    }
+  }
+
   // Reusable drawing function with proper font loading
   async function drawOverlay(ctx, width, height) {
     // Ensure font is loaded before drawing
@@ -199,7 +240,7 @@ export default function GarminOverlayApp() {
       ctx.restore();
     }
 
-    // draw text
+    // draw original activity text
     ctx.save();
     ctx.fillStyle = textStyle.color;
     ctx.textBaseline = "top";
@@ -229,6 +270,40 @@ export default function GarminOverlayApp() {
       ctx.restore();
     });
     ctx.restore();
+
+    // draw custom text boxes
+    customTextBoxes.forEach((textBox) => {
+      ctx.save();
+      ctx.fillStyle = routeStyle.color;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      ctx.font = `${textBox.size}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      
+      ctx.fillText(textBox.text, textBox.x, textBox.y);
+      
+      // draw selection border if selected
+      if (selectedTextBox && selectedTextBox.id === textBox.id) {
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        const metrics = ctx.measureText(textBox.text);
+        const textWidth = metrics.width;
+        const textHeight = textBox.size;
+        ctx.strokeStyle = "#007AFF";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 4]);
+        ctx.strokeRect(
+          textBox.x - textWidth / 2 - 15,
+          textBox.y - textHeight / 2 - 10,
+          textWidth + 30,
+          textHeight + 20
+        );
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+    });
   }
 
   async function drawCanvas() {
@@ -247,7 +322,7 @@ export default function GarminOverlayApp() {
   useEffect(() => {
     if (page === "editor") drawCanvas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageUrl, routeCoords, routeStyle, textStyle, textPos, routeBBox, selectedActivity]);
+  }, [imageUrl, routeCoords, routeStyle, textStyle, textPos, routeBBox, selectedActivity, customTextBoxes, selectedTextBox]);
 
   useEffect(() => {
     if (page === 'editor' && routeBBox) {
@@ -271,6 +346,41 @@ export default function GarminOverlayApp() {
     const x = (clientX - rect.left) * (canvas.width / rect.width);
     const y = (clientY - rect.top) * (canvas.height / rect.height);
     return { x, y };
+  }
+
+  // 新增函数：检测点击的文本框
+  function getClickedTextBox(x, y) {
+    // 检查自定义文本框
+    for (let i = customTextBoxes.length - 1; i >= 0; i--) {
+      const textBox = customTextBoxes[i];
+      const canvas = canvasRef.current;
+      if (!canvas) continue;
+      
+      const ctx = canvas.getContext("2d");
+      ctx.font = `${textBox.size}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      const textWidth = ctx.measureText(textBox.text).width;
+      const textHeight = textBox.size;
+      
+      const left = textBox.x - textWidth / 2 - 10;
+      const right = textBox.x + textWidth / 2 + 10;
+      const top = textBox.y - textHeight / 2 - 5;
+      const bottom = textBox.y + textHeight / 2 + 5;
+      
+      if (x >= left && x <= right && y >= top && y <= bottom) {
+        return { type: 'custom', textBox };
+      }
+    }
+
+    // 检查原始活动文本
+    const textWidth = 420;
+    const textHalfWidth = textWidth / 2;
+    const textHeight = textStyle.size * 4;
+    const textBox = { x: textPos.x - textHalfWidth, y: textPos.y, w: textWidth, h: textHeight };
+    if (x >= textBox.x && x <= textBox.x + textBox.w && y >= textBox.y && y <= textBox.y + textBox.h) {
+      return { type: 'activity' };
+    }
+
+    return null;
   }
 
   function onPointerDown(e) {
@@ -297,25 +407,31 @@ export default function GarminOverlayApp() {
       }
       // single touch -> decide drag text or route
       const p = clientToCanvas(t[0].clientX, t[0].clientY);
-      const textWidth = 420;
-      const textHalfWidth = textWidth / 2;
-      const textHeight = textStyle.size * 4;
-      const textBox = { x: textPos.x - textHalfWidth, y: textPos.y, w: textWidth, h: textHeight };
-      if (p.x >= textBox.x && p.x <= textBox.x + textBox.w && p.y >= textBox.y && p.y <= textBox.y + textBox.h) {
-        gestureRef.current = { type: 'drag_text', last: p };
+      const clickedText = getClickedTextBox(p.x, p.y);
+      if (clickedText) {
+        if (clickedText.type === 'custom') {
+          setSelectedTextBox(clickedText.textBox);
+          gestureRef.current = { type: 'drag_custom_text', last: p, textBoxId: clickedText.textBox.id };
+        } else {
+          gestureRef.current = { type: 'drag_text', last: p };
+        }
       } else {
+        setSelectedTextBox(null);
         gestureRef.current = { type: 'drag_route', last: p };
       }
     } else {
       // mouse event
       const p = clientToCanvas(e.clientX, e.clientY);
-      const textWidth = 420;
-      const textHalfWidth = textWidth / 2;
-      const textHeight = textStyle.size * 4;
-      const textBox = { x: textPos.x - textHalfWidth, y: textPos.y, w: textWidth, h: textHeight };
-      if (p.x >= textBox.x && p.x <= textBox.x + textBox.w && p.y >= textBox.y && p.y <= textBox.y + textBox.h) {
-        gestureRef.current = { type: 'drag_text', last: p };
+      const clickedText = getClickedTextBox(p.x, p.y);
+      if (clickedText) {
+        if (clickedText.type === 'custom') {
+          setSelectedTextBox(clickedText.textBox);
+          gestureRef.current = { type: 'drag_custom_text', last: p, textBoxId: clickedText.textBox.id };
+        } else {
+          gestureRef.current = { type: 'drag_text', last: p };
+        }
       } else {
+        setSelectedTextBox(null);
         gestureRef.current = { type: 'drag_route', last: p };
       }
 
@@ -375,6 +491,32 @@ export default function GarminOverlayApp() {
           }
           return { x: newX, y: newY };
         });
+      } else if (g.type === 'drag_custom_text') {
+        const moveAndUpdate = (box) => {
+          const newX = box.x + dx;
+          const newY = box.y + dy;
+
+          // 边界检查
+          const canvas = canvasRef.current;
+          let clampedX = newX;
+          let clampedY = newY;
+          if (canvas) {
+            const ctx = canvas.getContext("2d");
+            ctx.font = `${box.size}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+            const metrics = ctx.measureText(box.text);
+            const textWidth = metrics.width;
+            const textHeight = box.size;
+
+            clampedX = Math.max(textWidth / 2, Math.min(newX, canvas.width - textWidth / 2));
+            clampedY = Math.max(textHeight / 2, Math.min(newY, canvas.height - textHeight / 2));
+          }
+          return { ...box, x: clampedX, y: clampedY };
+        };
+
+        setCustomTextBoxes(prevBoxes =>
+          prevBoxes.map(box => (box.id === g.textBoxId ? moveAndUpdate(box) : box))
+        );
+        setSelectedTextBox(prev => (prev && prev.id === g.textBoxId ? moveAndUpdate(prev) : prev));
       } else if (g.type === 'drag_route') {
         setRouteStyle((rs) => {
           let newOffsetX = rs.offsetX + dx;
@@ -413,6 +555,32 @@ export default function GarminOverlayApp() {
           }
           return { x: newX, y: newY };
         });
+      } else if (g.type === 'drag_custom_text') {
+        const moveAndUpdate = (box) => {
+          const newX = box.x + dx;
+          const newY = box.y + dy;
+
+          // 边界检查
+          const canvas = canvasRef.current;
+          let clampedX = newX;
+          let clampedY = newY;
+          if (canvas) {
+            const ctx = canvas.getContext("2d");
+            ctx.font = `${box.size}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+            const metrics = ctx.measureText(box.text);
+            const textWidth = metrics.width;
+            const textHeight = box.size;
+
+            clampedX = Math.max(textWidth / 2, Math.min(newX, canvas.width - textWidth / 2));
+            clampedY = Math.max(textHeight / 2, Math.min(newY, canvas.height - textHeight / 2));
+          }
+          return { ...box, x: clampedX, y: clampedY };
+        };
+
+        setCustomTextBoxes(prevBoxes =>
+          prevBoxes.map(box => (box.id === g.textBoxId ? moveAndUpdate(box) : box))
+        );
+        setSelectedTextBox(prev => (prev && prev.id === g.textBoxId ? moveAndUpdate(prev) : prev));
       } else if (g.type === 'drag_route') {
         setRouteStyle((rs) => {
           let newOffsetX = rs.offsetX + dx;
@@ -520,6 +688,8 @@ export default function GarminOverlayApp() {
   function resetTransforms() {
     setRouteStyle((s) => ({ ...s, scale: 1, offsetX: 0, offsetY: 0 }));
     setTextPos({ x: 120, y: 60 });
+    setCustomTextBoxes([]);
+    setSelectedTextBox(null);
   }
 
   function UploadPage({ onImageSelected }) {
@@ -609,6 +779,50 @@ export default function GarminOverlayApp() {
       }
   };
 
+  // 文本输入对话框组件
+  function TextInputModal({ isOpen, onClose, textBox, onSave }) {
+    const [inputText, setInputText] = useState(textBox?.text || '');
+
+    useEffect(() => {
+      setInputText(textBox?.text || '');
+    }, [textBox]);
+
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md">
+          <h3 className="text-lg font-semibold text-white mb-4">编辑文本</h3>
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="输入文本内容..."
+            autoFocus
+          />
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={() => {
+                onSave(inputText);
+                onClose();
+              }}
+              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium transition"
+            >
+              确定
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 px-4 rounded-lg font-medium transition"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-700 text-white flex items-start justify-center p-4 pt-6">
       <div className="w-full max-w-xl mx-auto">
@@ -670,6 +884,12 @@ export default function GarminOverlayApp() {
               <div className="flex gap-3">
                 <button
                   className="w-10 h-10 flex items-center justify-center rounded-full"
+                  onClick={addCustomTextBox}
+                >
+                  <Plus />
+                </button>
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full"
                   onClick={quickLayout}
                 >
                   <AlignVerticalSpaceAround />
@@ -710,6 +930,7 @@ export default function GarminOverlayApp() {
             <div className="fixed bottom-4 left-0 right-0 flex justify-center pointer-events-none">
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
                 <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'text' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('text')}><CaseSensitive /></button>
+                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'custom' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('custom')}><Type /></button>
                 <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'route' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('route')}><MapPin /></button>
                 <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'route2' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('route2')}><Scaling /></button>
               </div>
@@ -747,6 +968,52 @@ export default function GarminOverlayApp() {
                     />
                     <div className="w-10 text-sm text-right text-white">{textStyle.size}</div>
                   </div>
+                </div>
+              )}
+
+              {openPanel === 'custom' && (
+                <div className="space-y-4 w-full">
+                  {selectedTextBox ? (
+                    <>
+                      {/* 编辑选中的文本框 */}
+                      <div className="flex items-center gap-3 justify-between">
+                        <button
+                          onClick={() => setShowTextInput(true)}
+                          className="w-full p-2 bg-white/10 rounded-lg text-left text-white truncate"
+                        >
+                          {selectedTextBox.text || "点击编辑文本"}
+                        </button>
+
+                        <button
+                          onClick={() => deleteCustomTextBox(selectedTextBox.id)}
+                          className="w-16 p-2 bg-white/10 rounded-lg text-red-400 hover:text-red-300"
+                        >
+                          删除
+                        </button>
+                      </div>
+
+                      {/* Size Slider */}
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="w-16 text-sm text-gray-200">大小</div>
+                        <input
+                          type="range"
+                          min={24}
+                          max={72}
+                          value={selectedTextBox.size}
+                          onChange={e => updateCustomTextBox(selectedTextBox.id, { size: Number(e.target.value) })}
+                          className="flex-1 ios-slider"
+                        />
+                        <div className="w-10 text-sm text-right text-white">{selectedTextBox.size}</div>
+                      </div>
+
+                      
+                    </>
+                  ) : (
+                    <div className="text-center text-gray-300">
+                      <p className="mb-4">点击画布上的文本框进行编辑</p>
+                      <p className="text-sm">或点击顶部的 + 按钮添加新文本框</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -855,6 +1122,18 @@ export default function GarminOverlayApp() {
 
           </div>
         )}
+
+        {/* 文本输入模态框 */}
+        <TextInputModal
+          isOpen={showTextInput}
+          onClose={() => setShowTextInput(false)}
+          textBox={selectedTextBox}
+          onSave={(text) => {
+            if (selectedTextBox) {
+              updateCustomTextBox(selectedTextBox.id, { text });
+            }
+          }}
+        />
       </div>
     </div>
   );
@@ -877,4 +1156,4 @@ function getActivityIcon(type) {
     default:
       return '🏃';
   }
-};
+}
