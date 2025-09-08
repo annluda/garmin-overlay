@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Camera, ArrowBigLeft , UndoDot, Download , CaseSensitive,  Scaling , MapPin , Blend , RulerDimensionLine, AlignVerticalSpaceAround, Type, Plus } from 'lucide-react'
+import { Camera, ArrowBigLeft , UndoDot, Download , Trophy , MapPin , Blend , RulerDimensionLine, AlignVerticalSpaceAround, Pin, Plus , Trash, ZoomIn} from 'lucide-react'
 
 
 const BACKEND_BASE = import.meta.env.VITE_BACKEND_BASE; 
@@ -884,12 +884,6 @@ export default function GarminOverlayApp() {
               <div className="flex gap-3">
                 <button
                   className="w-10 h-10 flex items-center justify-center rounded-full"
-                  onClick={addCustomTextBox}
-                >
-                  <Plus />
-                </button>
-                <button
-                  className="w-10 h-10 flex items-center justify-center rounded-full"
                   onClick={quickLayout}
                 >
                   <AlignVerticalSpaceAround />
@@ -929,10 +923,10 @@ export default function GarminOverlayApp() {
             {/* Bottom fixed toolbar - 4 buttons, each opens a sliding panel */}
             <div className="fixed bottom-4 left-0 right-0 flex justify-center pointer-events-none">
               <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-3 flex gap-4 pointer-events-auto">
-                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'text' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('text')}><CaseSensitive /></button>
-                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'custom' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('custom')}><Type /></button>
+                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'text' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('text')}><Trophy /></button>
+                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'custom' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('custom')}><Pin /></button>
                 <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'route' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('route')}><MapPin /></button>
-                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'route2' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('route2')}><Scaling /></button>
+                <button className={`btn-reset px-4 py-2 rounded-xl font-medium transition duration-200 active:scale-95 ${openPanel === 'route2' ? 'bg-black/30 text-white' : 'bg-transparent text-white'}`} onClick={() => handleButtonClick('route2')}><ZoomIn /></button>
               </div>
             </div>
 
@@ -983,12 +977,17 @@ export default function GarminOverlayApp() {
                         >
                           {selectedTextBox.text || "点击编辑文本"}
                         </button>
-
                         <button
-                          onClick={() => deleteCustomTextBox(selectedTextBox.id)}
-                          className="w-16 p-2 bg-white/10 rounded-lg text-red-400 hover:text-red-300"
+                          className="w-10 h-10 flex items-center justify-center"
+                          onClick={addCustomTextBox}
                         >
-                          删除
+                          <Plus />
+                        </button>
+                        <button
+                          className="w-10 h-10 flex items-center justify-center"
+                          onClick={() => deleteCustomTextBox(selectedTextBox.id)}
+                        >
+                          <Trash />
                         </button>
                       </div>
 
@@ -1009,9 +1008,13 @@ export default function GarminOverlayApp() {
                       
                     </>
                   ) : (
-                    <div className="text-center text-gray-300">
-                      <p className="mb-4">点击画布上的文本框进行编辑</p>
-                      <p className="text-sm">或点击顶部的 + 按钮添加新文本框</p>
+                    <div>
+                      <button
+                        className="w-10 h-10 flex items-center justify-center"
+                        onClick={addCustomTextBox}
+                      >
+                        <Plus />
+                      </button>
                     </div>
                   )}
                 </div>
