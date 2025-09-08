@@ -163,9 +163,13 @@ export default function GarminOverlayApp() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const boxText = selectedActivity 
+      ? selectedActivity.activityName 
+      : "自定义文本";
+
     const newTextBox = {
       id: Date.now(),
-      text: "自定义文本",
+      text: boxText,
       x: canvas.width / 2,
       y: canvas.height / 2,
       size: 36
