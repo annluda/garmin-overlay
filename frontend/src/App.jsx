@@ -277,7 +277,7 @@ export default function GarminOverlayApp() {
       ctx.fillStyle = routeStyle.color;
       ctx.textBaseline = "middle";
       ctx.textAlign = "center";
-      ctx.font = `${textBox.size}px 'FSDillonPro', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
+      ctx.font = `${textBox.size}px system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial`;
       
       ctx.fillText(textBox.text, textBox.x, textBox.y);
       
