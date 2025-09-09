@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Camera, ArrowBigLeft , UndoDot, Download , Trophy , MapPin , Blend , RulerDimensionLine, AlignVerticalSpaceAround, Pin, Plus , Trash, ZoomIn} from 'lucide-react'
+import { Camera, ArrowBigLeft , UndoDot, Download , Trophy , MapPin , Blend , RulerDimensionLine, AlignVerticalSpaceAround, Pin , Trash, ZoomIn, Type} from 'lucide-react'
 
 
 const BACKEND_BASE = import.meta.env.VITE_BACKEND_BASE; 
@@ -26,6 +26,10 @@ export default function GarminOverlayApp() {
   const [customTextBoxes, setCustomTextBoxes] = useState([]);
   const [selectedTextBox, setSelectedTextBox] = useState(null);
   const [showTextInput, setShowTextInput] = useState(false);
+
+  // 新增自定义圆形状态
+  const [customCircles, setCustomCircles] = useState([]);
+  const [selectedCircle, setSelectedCircle] = useState(null);
 
   const [openPanel, setOpenPanel] = useState(null); 
   const [activeAppearanceSlider, setActiveAppearanceSlider] = useState('width'); 
@@ -178,6 +182,7 @@ export default function GarminOverlayApp() {
     setCustomTextBoxes(prev => [...prev, newTextBox]);
     setSelectedTextBox(newTextBox);
     setShowTextInput(true);
+    setSelectedCircle(null);
   }
 
   // 新增函数：更新自定义文本框
@@ -195,6 +200,41 @@ export default function GarminOverlayApp() {
     setCustomTextBoxes(prev => prev.filter(box => box.id !== id));
     if (selectedTextBox && selectedTextBox.id === id) {
       setSelectedTextBox(null);
+    }
+  }
+
+  // 新增函数：添加圆形
+  function addCircle() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const newCircle = {
+      id: Date.now(),
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      radius: 50,
+    };
+
+    setCustomCircles(prev => [...prev, newCircle]);
+    setSelectedCircle(newCircle);
+    setSelectedTextBox(null); // 取消选中文本框
+  }
+
+  // 新增函数：更新圆形
+  function updateCustomCircle(id, updates) {
+    setCustomCircles(prev => prev.map(circle => 
+      circle.id === id ? { ...circle, ...updates } : circle
+    ));
+    if (selectedCircle && selectedCircle.id === id) {
+      setSelectedCircle(prev => ({ ...prev, ...updates }));
+    }
+  }
+
+  // 新增函数：删除圆形
+  function deleteCustomCircle(id) {
+    setCustomCircles(prev => prev.filter(circle => circle.id !== id));
+    if (selectedCircle && selectedCircle.id === id) {
+      setSelectedCircle(null);
     }
   }
 
@@ -308,6 +348,32 @@ export default function GarminOverlayApp() {
       }
       ctx.restore();
     });
+
+    // draw custom circles
+    customCircles.forEach((circle) => {
+      ctx.save();
+      ctx.fillStyle = routeStyle.color;
+      ctx.beginPath();
+      ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // draw selection border if selected
+      if (selectedCircle && selectedCircle.id === circle.id) {
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        ctx.strokeStyle = "#007AFF";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 4]);
+        ctx.beginPath();
+        ctx.arc(circle.x, circle.y, circle.radius + 10, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+    });
   }
 
   async function drawCanvas() {
@@ -326,7 +392,7 @@ export default function GarminOverlayApp() {
   useEffect(() => {
     if (page === "editor") drawCanvas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageUrl, routeCoords, routeStyle, textStyle, textPos, routeBBox, selectedActivity, customTextBoxes, selectedTextBox]);
+  }, [imageUrl, routeCoords, routeStyle, textStyle, textPos, routeBBox, selectedActivity, customTextBoxes, selectedTextBox, customCircles, selectedCircle]);
 
   useEffect(() => {
     if (page === 'editor' && routeBBox) {
@@ -352,8 +418,17 @@ export default function GarminOverlayApp() {
     return { x, y };
   }
 
-  // 新增函数：检测点击的文本框
-  function getClickedTextBox(x, y) {
+  // 新增函数：检测点击的对象（文本框或圆形）
+  function getClickedObject(x, y) {
+    // 检查自定义圆形
+    for (let i = customCircles.length - 1; i >= 0; i--) {
+      const circle = customCircles[i];
+      const dist = Math.hypot(x - circle.x, y - circle.y);
+      if (dist <= circle.radius + 5) { // Add some buffer
+        return { type: 'circle', circle };
+      }
+    }
+
     // 检查自定义文本框
     for (let i = customTextBoxes.length - 1; i >= 0; i--) {
       const textBox = customTextBoxes[i];
@@ -411,31 +486,47 @@ export default function GarminOverlayApp() {
       }
       // single touch -> decide drag text or route
       const p = clientToCanvas(t[0].clientX, t[0].clientY);
-      const clickedText = getClickedTextBox(p.x, p.y);
-      if (clickedText) {
-        if (clickedText.type === 'custom') {
-          setSelectedTextBox(clickedText.textBox);
-          gestureRef.current = { type: 'drag_custom_text', last: p, textBoxId: clickedText.textBox.id };
+      const clickedObject = getClickedObject(p.x, p.y);
+      if (clickedObject) {
+        if (clickedObject.type === 'custom') {
+          setSelectedTextBox(clickedObject.textBox);
+          setSelectedCircle(null);
+          gestureRef.current = { type: 'drag_custom_text', last: p, textBoxId: clickedObject.textBox.id };
+        } else if (clickedObject.type === 'circle') {
+          setSelectedCircle(clickedObject.circle);
+          setSelectedTextBox(null);
+          gestureRef.current = { type: 'drag_circle', last: p, circleId: clickedObject.circle.id };
         } else {
+          setSelectedTextBox(null);
+          setSelectedCircle(null);
           gestureRef.current = { type: 'drag_text', last: p };
         }
       } else {
         setSelectedTextBox(null);
+        setSelectedCircle(null);
         gestureRef.current = { type: 'drag_route', last: p };
       }
     } else {
       // mouse event
       const p = clientToCanvas(e.clientX, e.clientY);
-      const clickedText = getClickedTextBox(p.x, p.y);
-      if (clickedText) {
-        if (clickedText.type === 'custom') {
-          setSelectedTextBox(clickedText.textBox);
-          gestureRef.current = { type: 'drag_custom_text', last: p, textBoxId: clickedText.textBox.id };
+      const clickedObject = getClickedObject(p.x, p.y);
+      if (clickedObject) {
+        if (clickedObject.type === 'custom') {
+          setSelectedTextBox(clickedObject.textBox);
+          setSelectedCircle(null);
+          gestureRef.current = { type: 'drag_custom_text', last: p, textBoxId: clickedObject.textBox.id };
+        } else if (clickedObject.type === 'circle') {
+          setSelectedCircle(clickedObject.circle);
+          setSelectedTextBox(null);
+          gestureRef.current = { type: 'drag_circle', last: p, circleId: clickedObject.circle.id };
         } else {
+          setSelectedTextBox(null);
+          setSelectedCircle(null);
           gestureRef.current = { type: 'drag_text', last: p };
         }
       } else {
         setSelectedTextBox(null);
+        setSelectedCircle(null);
         gestureRef.current = { type: 'drag_route', last: p };
       }
 
@@ -521,6 +612,21 @@ export default function GarminOverlayApp() {
           prevBoxes.map(box => (box.id === g.textBoxId ? moveAndUpdate(box) : box))
         );
         setSelectedTextBox(prev => (prev && prev.id === g.textBoxId ? moveAndUpdate(prev) : prev));
+      } else if (g.type === 'drag_circle') {
+        const moveAndUpdate = (circle) => {
+          const newX = circle.x + dx;
+          const newY = circle.y + dy;
+          const canvas = canvasRef.current;
+          let clampedX = newX;
+          let clampedY = newY;
+          if (canvas) {
+            clampedX = Math.max(circle.radius, Math.min(newX, canvas.width - circle.radius));
+            clampedY = Math.max(circle.radius, Math.min(newY, canvas.height - circle.radius));
+          }
+          return { ...circle, x: clampedX, y: clampedY };
+        };
+        setCustomCircles(prev => prev.map(c => c.id === g.circleId ? moveAndUpdate(c) : c));
+        setSelectedCircle(prev => (prev && prev.id === g.circleId ? moveAndUpdate(prev) : prev));
       } else if (g.type === 'drag_route') {
         setRouteStyle((rs) => {
           let newOffsetX = rs.offsetX + dx;
@@ -585,6 +691,21 @@ export default function GarminOverlayApp() {
           prevBoxes.map(box => (box.id === g.textBoxId ? moveAndUpdate(box) : box))
         );
         setSelectedTextBox(prev => (prev && prev.id === g.textBoxId ? moveAndUpdate(prev) : prev));
+      } else if (g.type === 'drag_circle') {
+        const moveAndUpdate = (circle) => {
+          const newX = circle.x + dx;
+          const newY = circle.y + dy;
+          const canvas = canvasRef.current;
+          let clampedX = newX;
+          let clampedY = newY;
+          if (canvas) {
+            clampedX = Math.max(circle.radius, Math.min(newX, canvas.width - circle.radius));
+            clampedY = Math.max(circle.radius, Math.min(newY, canvas.height - circle.radius));
+          }
+          return { ...circle, x: clampedX, y: clampedY };
+        };
+        setCustomCircles(prev => prev.map(c => c.id === g.circleId ? moveAndUpdate(c) : c));
+        setSelectedCircle(prev => (prev && prev.id === g.circleId ? moveAndUpdate(prev) : prev));
       } else if (g.type === 'drag_route') {
         setRouteStyle((rs) => {
           let newOffsetX = rs.offsetX + dx;
@@ -694,6 +815,8 @@ export default function GarminOverlayApp() {
     setTextPos({ x: 120, y: 60 });
     setCustomTextBoxes([]);
     setSelectedTextBox(null);
+    setCustomCircles([]);
+    setSelectedCircle(null);
   }
 
   function UploadPage({ onImageSelected }) {
@@ -971,30 +1094,49 @@ export default function GarminOverlayApp() {
 
               {openPanel === 'custom' && (
                 <div className="space-y-4 w-full">
-                  {selectedTextBox ? (
-                    <>
-                      {/* 编辑选中的文本框 */}
-                      <div className="flex items-center gap-3 justify-between">
-                        <button
-                          onClick={() => setShowTextInput(true)}
-                          className="w-full p-2 bg-white/10 rounded-lg text-left text-white truncate"
-                        >
-                          {selectedTextBox.text || "点击编辑文本"}
-                        </button>
-                        <button
-                          className="w-10 h-10 flex items-center justify-center"
-                          onClick={addCustomTextBox}
-                        >
-                          <Plus />
-                        </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      className="w-10 h-10 flex items-center justify-center"
+                      onClick={addCustomTextBox}
+                    >
+                      <Type />
+                    </button>
+                    <button
+                      className="w-10 h-10 flex items-center justify-center"
+                      onClick={addCircle}
+                    >
+                      <Pin />
+                    </button>
+
+                    {selectedTextBox && (
+                      <>
                         <button
                           className="w-10 h-10 flex items-center justify-center"
                           onClick={() => deleteCustomTextBox(selectedTextBox.id)}
                         >
                           <Trash />
                         </button>
-                      </div>
 
+                        <button
+                          onClick={() => setShowTextInput(true)}
+                          className="flex-1 p-2 bg-white/10 rounded-lg text-left text-white truncate"
+                        >
+                          {selectedTextBox.text || "点击编辑文本"}
+                        </button>
+                      </>
+                    )}
+                    {selectedCircle && (
+                      <button
+                        className="w-10 h-10 flex items-center justify-center"
+                        onClick={() => deleteCustomCircle(selectedCircle.id)}
+                      >
+                        <Trash />
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedTextBox && (
+                    <>
                       {/* Size Slider */}
                       <div className="flex items-center gap-3 w-full">
                         <div className="w-16 text-sm text-gray-200">大小</div>
@@ -1008,17 +1150,30 @@ export default function GarminOverlayApp() {
                         />
                         <div className="w-10 text-sm text-right text-white">{selectedTextBox.size}</div>
                       </div>
-
-                      
                     </>
-                  ) : (
-                    <div>
-                      <button
-                        className="w-10 h-10 flex items-center justify-center"
-                        onClick={addCustomTextBox}
-                      >
-                        <Plus />
-                      </button>
+                  )}
+
+                  {selectedCircle && (
+                    <>
+                      {/* Radius Slider */}
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="w-16 text-sm text-gray-200">圆点半径</div>
+                        <input
+                          type="range"
+                          min={11}
+                          max={50}
+                          value={selectedCircle.radius}
+                          onChange={e => updateCustomCircle(selectedCircle.id, { radius: Number(e.target.value) })}
+                          className="flex-1 ios-slider"
+                        />
+                        <div className="w-10 text-sm text-right text-white">{selectedCircle.radius}</div>
+                      </div>
+                    </>
+                  )}
+
+                  {!selectedTextBox && !selectedCircle && (
+                    <div className="text-center text-gray-400">
+                      <p>添加或选择一个元素进行编辑。</p>
                     </div>
                   )}
                 </div>
