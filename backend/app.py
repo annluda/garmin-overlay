@@ -31,6 +31,8 @@ CACHE_TTL = 600
 GPX_MAX_AGE = 7 * 24 * 3600  # 文件保留 7 天
 
 AMAP_KEY = os.getenv("AMAP_KEY")
+if not AMAP_KEY:
+    raise RuntimeError("Missing AMAP_KEY environment variable")
 
 
 def lazy_cleanup_gpx():
