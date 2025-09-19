@@ -1,5 +1,5 @@
 # 使用官方 Python 镜像
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 # 设置工作目录
 WORKDIR /app
@@ -7,8 +7,20 @@ WORKDIR /app
 # 复制依赖文件
 COPY requirements.txt .
 
+# 复制证书文件到临时位置，便于追加到 certifi 信任链
+COPY cer.txt /tmp/cer.txt
+
 # 安装依赖
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple --no-cache-dir -r requirements.txt \
+    && python - <<'PY'
+import certifi
+from pathlib import Path
+
+cacert = Path(certifi.where())
+extra = Path('/tmp/cer.txt')
+with cacert.open('ab') as target, extra.open('rb') as source:
+    target.write(source.read())
+PY
 
 # 复制所有后端代码
 COPY . .
